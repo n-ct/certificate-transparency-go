@@ -211,10 +211,31 @@ type sourceLog struct {
 	lastSTH *ct.SignedTreeHead
 }
 
+// this is identical to above -- it's more explicit
+// please clean up before PR
+// type sourceLog struct {
+// 	Name        string
+// 	URL         string
+// 	Log         *logclient.LogClient
+// 	MinInterval time.Duration
+// 	mu      sync.Mutex
+// 	lastSTH *ct.SignedTreeHead
+// }
+
 type monitor struct {
 	monitorConfig
 	mu sync.Mutex
 }
+
+// this is identical to above -- it's more explicit
+// please clean up before PR
+// type monitor struct {
+// 	Name          string
+// 	URL           string
+// 	Monitor       *logclient.LogClient
+// 	lastBroadcast map[string]time.Time
+// 	mu sync.Mutex
+// }
 
 /// ---------------------------------
 /// Gossiper Functions
@@ -433,4 +454,24 @@ func (src *sourceLog) GetNewerEntries(ctx context.Context, g *Gossiper, lastSTH,
 	}
 
 	return entries, nil
+}
+
+func (m *monitor) InitializeMerkleTreeForLog (src *sourceLog, entries []ct.LogEntry) (SomeMerkleTree, SomeConsistencyProof, error){
+	// see algorithm step 3
+	// return types are fake. they need to be associated with an actual type to compile
+	initializedTree, error := m.Monitor.TriggerTrillianAPIToCreateMerkleTreeForLog(src, entries)
+	if error != nil{
+		return nil, nil, fmt.Errof("failed to initialize tree for %d entries", len(entries)))
+	}
+	 if proof err := intializedTree.checkConsistencyProof(); err != nil{
+		 return initializedTree, nil, fmt.Errof("failed to validate tree for %d entries", len(entries)))
+	 } else {
+		 return initializedTree, proof
+	 }
+}
+
+func (m *monitor) CheckTreeConsistencyForLog (src *sourceLog, ...)(SomeConsistencyProof, error){
+	// see algorithm step 4
+	// return types are fake. they need to be associated with an actual type to compile
+	return nil, fmt.Errof("failed to check consistency"))
 }
