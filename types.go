@@ -463,14 +463,6 @@ type AddChainResponse struct {
 	Signature  []byte  `json:"signature"`   // Log signature for this SCT
 }
 
-type GossipExchangeRequest struct {
-	Data	string `json:"data"`
-}
-
-type GossipExchangeResponse struct {
-	AnyTestInformation	interface{} `json:"AnyTestInformation"`
-}
-
 // ToSignedCertificateTimestamp creates a SignedCertificateTimestamp from the
 // AddChainResponse.
 func (r *AddChainResponse) ToSignedCertificateTimestamp() (*SignedCertificateTimestamp, error) {
