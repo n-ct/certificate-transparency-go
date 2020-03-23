@@ -41,6 +41,9 @@ import (
 	logclient "github.com/google/certificate-transparency-go/client"
 	hubclient "github.com/google/trillian-examples/gossip/client"
 
+//	"github.com/google/certificate-transparency-go/client/ctclient"
+	/go/src/github.com/zorawar87/certificate-transparency-go/client/ctclient
+
 	// Register PEMKeyFile ProtoHandler
 	_ "github.com/google/trillian/crypto/keys/pem/proto"
 )
@@ -408,6 +411,16 @@ func (src *sourceLog) Retriever(ctx context.Context, g *Gossiper, s chan<- sthIn
 			lastRecordedSTHTimestamp.Set(float64(sth.Timestamp), src.Name)
 			lastRecordedSTHTreeSize.Set(float64(sth.TreeSize), src.Name)
 			s <- sthInfo{name: src.Name, sth: sth, entries: entries}
+
+			// Using methods from ctclient
+			prevHash := &lastSTH.SHA256RootHash
+			prevSize := &lastSTH.TreeSize
+
+			treeHash := &sth.SHA256RootHash
+			treeSize := &sth.TreeSize
+
+			//prints out consistency success/failure
+			getConsistencyProof(ctx, src.LogClient) // src.LogClient = instance of client.CheckLogClient)
 		}
 		glog.V(2).Infof("Retriever(%s): wait for a %s tick", src.Name, src.MinInterval)
 	})

@@ -3,6 +3,8 @@
 # are extracted from the main trillian/integration/ct_integration_test.sh script.
 ## Zorawar added some notes below. they start with two hashes
 
+trill_dir=${GOPATH}/src/github.com/zorawar87/certificate-transparency-go/trillian
+testdata_dir=$trill_dir/testdata
 
 if [ $(uname) == "Darwin" ]; then
   URLOPEN=open
@@ -25,36 +27,11 @@ sed "s~@TESTDATA@~${GOPATH}/src/github.com/zorawar87/certificate-transparency-go
 echo '-----------------------------------------------'
 set -x
 
-## this is all done in prior parts of setup
-#echo 'Reset MySQL database'
-#yes | ${GOPATH}/src/github.com/google/trillian/scripts/resetdb.sh
-#
-#echo 'Building Trillian log code'
-#go build github.com/google/trillian/server/trillian_log_server/
-#go build github.com/google/trillian/server/trillian_log_signer/
-#
-#echo 'Start a Trillian Log server (do in separate terminal)'
-#./trillian_log_server --rpc_endpoint=localhost:6962 --http_endpoint=localhost:6963 --logtostderr &
-#
-#echo 'Start a Trillian Log signer (do in separate terminal)'
-#./trillian_log_signer --force_master --sequencer_interval=1s --batch_size=500 --rpc_endpoint=localhost:6961 --http_endpoint=localhost:6964 --num_sequencers 2 --logtostderr &
-#
-#echo 'Wait for things to come up'
-#sleep 8
-#
-#echo 'Building provisioning tool'
-#go build github.com/google/trillian/cmd/createtree/
-#
-#echo 'Provision a log and remember the its tree ID'
-tree_id=$(createtree --admin_server=tlserver:8090 --private_key_format=PrivateKey --pem_key_path=${GOPATH}/src/github.com/zorawar87/certificate-transparency-go/trillian/testdata/log-rpc-server.privkey.pem --pem_key_password=towel --signature_algorithm=ECDSA)
+tree_id=$(createtree --admin_server=tlserver:8090 --private_key_format=PrivateKey --pem_key_path=$testdata_dir/log-rpc-server.privkey.pem --pem_key_password=towel --signature_algorithm=ECDSA)
 echo ${tree_id}
 
 echo 'Manually edit CT config file to put the tree ID value in place of @TREE_ID@'
 sed -i'.bak' "1,/@TREE_ID@/s/@TREE_ID@/${tree_id}/" demo-script.cfg
-
-## we already install this
-#echo 'Building CT personality code'
-#go build github.com/zorawar87/certificate-transparency-go/trillian/ctfe/ct_server
 
 echo 'Running the CT personality (do in separate terminal)'
 ct_server --log_config=demo-script.cfg --log_rpc_server=tlserver:8090 --http_endpoint=localhost:6965 &
@@ -64,50 +41,56 @@ sleep 5
 echo 'Log is now accessible -- see in browser window'
 ${URLOPEN} http://localhost:6965/athos/ct/v1/get-sth
 
-## we already install this too
-#echo 'But is has no data, so building the Hammer test tool'
-#go build github.com/zorawar87/certificate-transparency-go/trillian/integration/ct_hammer
-
 echo 'Hammer time'
-ct_hammer --log_config demo-script.cfg --ct_http_servers=localhost:6965 --mmd=30s --testdata_dir=${GOPATH}/src/github.com/zorawar87/certificate-transparency-go/trillian/testdata --logtostderr &
+ct_hammer --log_config demo-script.cfg --ct_http_servers=localhost:6965 --mmd=30s --testdata_dir=$testdata_dir --logtostderr &
 hammer_pid=$!
 
 echo 'After waiting for a while, refresh the browser window to see a bigger tree'
-sleep 5
+sleep 10
 ${URLOPEN} http://localhost:6965/athos/ct/v1/get-sth
 
 sleep 10
 echo 'Now lets add another log.  First kill the hammer'
 kill -9 ${hammer_pid}
 
-#echo 'Provision a log and remember the its tree ID'
-#tree_id_2=$(createtree --admin_server=localhost:6962 --private_key_format=PrivateKey --pem_key_path=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata/log-rpc-server.privkey.pem --pem_key_password=towel --signature_algorithm=ECDSA)
-#echo ${tree_id_2}
+echo 'Provision a log and remember the its tree ID'
+tree_id_2=$(createtree --admin_server=tlserver:8090 --private_key_format=PrivateKey --pem_key_path=$testdata_dir/log-rpc-server.privkey.pem --pem_key_password=towel --signature_algorithm=ECDSA)
+echo ${tree_id_2}
 
-#echo 'Manually edit CT config file to copy the athos config to be a second config with prefix: "porthos" and with the new tree ID'
-#cp demo-script.cfg  demo-script-2.cfg
-#cat demo-script.cfg | sed 's/athos/porthos/' | sed "s/${tree_id}/${tree_id_2}/" >> demo-script-2.cfg
+echo 'Manually edit CT config file to copy the athos config to be a second config with prefix: "porthos" and with the new tree ID'
+cp demo-script.cfg  demo-script-2.cfg
+cat demo-script.cfg | sed 's/athos/porthos/' | sed "s/${tree_id}/${tree_id_2}/" >> demo-script-2.cfg
 
-#echo 'Stop and restart the CT personality to use the new config (note changed --log_config)'
-#kill -9 ${ct_pid}
-#ct_server --log_config=demo-script-2.cfg --log_rpc_server=localhost:6962 --http_endpoint=localhost:6965 &
-#sleep 5
+echo 'Stop and restart the CT personality to use the new config (note changed --log_config)'
+kill -9 ${ct_pid}
+ct_server --log_config=demo-script-2.cfg --log_rpc_server=tlserver:8090 --http_endpoint=localhost:6965 &
+ct_pid=$!
+sleep 5
 
-#echo 'See the new (empty) log'
-#${URLOPEN} http://localhost:6965/porthos/ct/v1/get-sth
+echo 'See the new (empty) log'
+${URLOPEN} http://localhost:6965/porthos/ct/v1/get-sth
 
-#echo 'Double Hammer time (note changed --log_config)'
-#ct_hammer --log_config demo-script-2.cfg --ct_http_servers=localhost:6965 --mmd=30s --testdata_dir=${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/testdata --logtostderr &
-#hammer_pid=$!
+echo 'Double Hammer time (note changed --log_config)'
+ct_hammer --log_config demo-script-2.cfg --ct_http_servers=localhost:6965 --mmd=30s --testdata_dir=$testdata_dir --logtostderr &
+hammer_pid=$!
 
+sleep 10
 
-#sleep 30
+echo "After populating porthos tree"
+${URLOPEN} http://localhost:6965/porthos/ct/v1/get-sth
+
+sleep 5
 
 #echo 'Remember to kill off all of the jobs, so their (hard-coded) ports get freed up.  Shortcut:'
+##kill all not needed for this particular demo, just kill the ctserver and cthammer manually
+
 #${GOPATH}/src/github.com/google/certificate-transparency-go/trillian/integration/ct_killall.sh
 #echo '...but ct_killall does not kill the hammer'
 #killall -9 ct_hammer
 
+echo "Killing ctserver and cthammer"
+kill -9 $hammer_pid
+kill -9 $ct_pid
 
 # Other ideas to extend a linear demo:
 #  1) Add a temporal log config, which just involves adding a fragment like the following (for 2017):
