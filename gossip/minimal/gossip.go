@@ -40,8 +40,8 @@ import (
 
 	ct "github.com/google/certificate-transparency-go"
 	logclient "github.com/google/certificate-transparency-go/client"
-	hubclient "github.com/google/trillian-examples/gossip/client"
 	"github.com/google/certificate-transparency-go/gossip"
+	hubclient "github.com/google/trillian-examples/gossip/client"
 
 	// Register PEMKeyFile ProtoHandler
 	_ "github.com/google/trillian/crypto/keys/pem/proto"
@@ -95,7 +95,7 @@ type logConfig struct {
 type monitorConfig struct {
 	Name          string
 	URL           string
-	HttpClient *logclient.LogClient
+	HttpClient    *logclient.LogClient
 	lastBroadcast map[string]time.Time
 }
 
@@ -263,11 +263,11 @@ func (g *Gossiper) Run(ctx context.Context) {
 			glog.Infof("finished Retriever(%s)", src.Name)
 		}(src)
 	}
-	go func(){
+	go func() {
 		glog.Info("starting Gossip Listener")
 		g.Listen(ctx)
 		glog.Info("finished Gossip Listener")
-	} ()
+	}()
 	///////////////////////////////////
 	// glog.Info("starting Submitter")
 	// g.Submitter(ctx, sths)
@@ -305,12 +305,12 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 			for _, monitor := range g.monitors {
 				glog.Infof("Broadcaster: info (%s)->(%s)", src.Name, monitor.Name)
 				ack, err := monitor.HttpClient.PostGossipExchange(ctx, ct.GossipExchangeRequest{
-					LogURL: src.URL,
-					STH: *info.sth,
+					LogURL:       src.URL,
+					STH:          *info.sth,
 					IsConsistent: true,
-					Proof: []ct.MerkleTreeNode{},
+					Proof:        []ct.MerkleTreeNode{},
 				})
-				if err != nil{
+				if err != nil {
 					glog.Errorf("Broadcaster: Acknowledgement for %s failed. Error: %s", monitor.Name, err)
 				}
 				glog.Infof("Broadcaster: Retrieved Acknowledgement (%s)->(%s)\n%s", src.Name, monitor.Name, ack)
@@ -384,7 +384,6 @@ func (g *Gossiper) Submitter(ctx context.Context, s <-chan sthInfo) {
 		}
 	}
 }
-
 
 type sthInfo struct {
 	name    string
