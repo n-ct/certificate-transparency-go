@@ -17,7 +17,7 @@ require (
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
-	github.com/golang/mock v1.4.0
+	github.com/golang/mock v1.4.1
 	github.com/golang/protobuf v1.3.3
 	github.com/golangci/golangci-lint v1.21.0 // indirect
 	github.com/google/go-cmp v0.4.0
@@ -50,7 +50,7 @@ require (
 	github.com/securego/gosec v0.0.0-20191104154532-b4c76d4234af // indirect
 	github.com/sergi/go-diff v1.1.0
 	github.com/spf13/viper v1.5.0 // indirect
-	github.com/stretchr/testify v1.5.0
+	github.com/stretchr/testify v1.5.1
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	github.com/uber/prototool v1.9.0 // indirect
 	github.com/urfave/cli v1.22.1 // indirect
