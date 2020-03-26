@@ -244,6 +244,7 @@ func (g *Gossiper) CheckCanSubmit(ctx context.Context) error {
 	return nil
 }
 
+/// -. Retrieve, Listen, Broadcast
 /// 1. create channel for STHs
 /// 2. add all source logs to gossiper waitgroup
 /// 3. Periodically retreieve STH from each source log concurrently
