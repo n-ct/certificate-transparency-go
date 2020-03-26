@@ -33,11 +33,11 @@ import (
 )
 
 var (
-	logConfig    = flag.String("log_config", "./integration/demo-script.cfg", "File holding log config in text proto format")
-	rpcBackend   = flag.String("log_rpc_server", "13.90.199.163:8090", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified). If unset backends are specified in config (as a LogMultiConfig proto)")
+	logConfig          = flag.String("log_config", "./trillian/multilog/demo-script.cfg", "File holding log config in text proto format")
+	rpcBackend         = flag.String("log_rpc_server", "13.90.199.163:8090", "Backend specification; comma-separated list or etcd service name (if --etcd_servers specified). If unset backends are specified in config (as a LogMultiConfig proto)")
 	rpcDeadline        = flag.Duration("rpc_deadline", time.Second*10, "Deadline for backend RPC requests")
 	getSTHInterval     = flag.Duration("get_sth_interval", time.Second*180, "Interval between internal get-sth operations (0 to disable)")
-	httpEndpoint = flag.String("http_endpoint", "0.0.0.0:6965", "Endpoint for HTTP (host:port)")
+	httpEndpoint       = flag.String("http_endpoint", "0.0.0.0:6965", "Endpoint for HTTP (host:port)")
 	maskInternalErrors = flag.Bool("mask_internal_errors", false, "Don't return error strings with Internal Server Error HTTP responses")
 	quotaRemote        = flag.Bool("quota_remote", true, "Enable requesting of quota for IP address sending incoming requests")
 	quotaIntermediate  = flag.Bool("quota_intermediate", true, "Enable requesting of quota for intermediate certificates in sumbmitted chains")
@@ -118,7 +118,7 @@ func main() {
 func setupAndRegister(
 	ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration,
 	cfg *configpb.LogConfig, mux *http.ServeMux, globalHandlerPrefix string, maskInternalErrors bool,
-	) (*ctfe.Instance, error) {
+) (*ctfe.Instance, error) {
 	vCfg, err := ctfe.ValidateLogConfig(cfg)
 	if err != nil {
 		return nil, err
