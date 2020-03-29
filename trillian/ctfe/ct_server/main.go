@@ -48,6 +48,12 @@ import (
 	_ "github.com/google/trillian/crypto/keys/pkcs11/proto"
 )
 
+/// run as:  ct_server
+// logConfig --log_config=demo-script.cfg
+// rpcBackend --log_rpc_server=tlserver:8090
+// httpEndpoint --http_endpoint=0.0.0.0:6965
+// -alsologtostderr
+//-v=2
 // Global flags that affect all log instances.
 var (
 	httpEndpoint       = flag.String("http_endpoint", "localhost:6962", "Endpoint for HTTP (host:port)")

@@ -51,6 +51,8 @@ echo ${tree_id}
 
 echo 'Manually edit CT config file to put the tree ID value in place of @TREE_ID@'
 sed -i'.bak' "1,/@TREE_ID@/s/@TREE_ID@/${tree_id}/" demo-script.cfg
+# enable for ctserverb
+#sed -i'.bak' "s/athos/porthos/" demo-script.cfg
 
 ## we already install this
 #echo 'Building CT personality code'
