@@ -189,6 +189,9 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 	}
 
 	return &Gossiper{
+		// TODO: input sanitization
+		gossipListenAddr: cfg.GossipListenAddr,
+		rpcEndpoint: cfg.RpcEndpoint,
 		signer:     signer,
 		root:       root,
 		dests:      dests,
