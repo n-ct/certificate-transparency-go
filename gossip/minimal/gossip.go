@@ -226,6 +226,8 @@ type monitor struct {
 // distributes it to a destination log in the form of an X.509 certificate with
 // the STH value embedded in it.
 type Gossiper struct {
+	gossipListenAddr string
+	rpcEndpoint string
 	signer     crypto.Signer
 	root       *x509.Certificate
 	dests      map[string]*destHub
@@ -302,7 +304,6 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 				glog.Errorf("Broadcast: Broadcasting(%s) for unknown source log", fromLog)
 			}
 
-			/// TODO: broadcast STH and other info to each monitor
 			for _, monitor := range g.monitors {
 				glog.Infof("Broadcaster: info (%s)->(%s)", src.Name, monitor.Name)
 				ack, err := monitor.HttpClient.PostGossipExchange(ctx, ct.GossipExchangeRequest{
@@ -323,11 +324,9 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 func (g *Gossiper) Listen(ctx context.Context) {
 	glog.Info("[Listen] Actually Starting Listener")
 	serveMux := http.NewServeMux()
-	serveMux.HandleFunc(ct.GossipExchangePath, gossip.HandleGossipListener)
+	serveMux.HandleFunc(ct.GossipExchangePath, g.HandleGossipListener)
 	server := &http.Server{
-		/// This should build from config
-		// Addr:    *listenAddress,
-		Addr:    ":6966",
+		Addr:    g.gossipListenAddr,
 		Handler: serveMux,
 	}
 	glog.Info("Listen: Created Server")
@@ -347,6 +346,11 @@ func (g *Gossiper) Listen(ctx context.Context) {
 		// Error starting or closing listener:
 		glog.Fatalf("HTTP server ListenAndServe: %v", err)
 	}
+}
+
+func (g *Gossiper) HandleGossipListener(rw http.ResponseWriter, req *http.Request) {
+	gossipReq, gossipResp := gossip.DecodeGossipListener(rw, req)
+	glog.Infof("HandleGossipListener: \n%v\n-------\n%v\n", gossipReq, gossipResp)
 }
 
 // Submitter periodically services the provided channel and submits the

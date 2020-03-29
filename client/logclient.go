@@ -261,13 +261,11 @@ func (c *LogClient) PostGossipExchange(ctx context.Context, data ct.GossipExchan
 		IsConsistent: data.IsConsistent,
 		Proof:        data.Proof,
 	}
-	fmt.Printf("PostGossipExchange: Broadcasting to (%s) | (%s)\n", req.LogURL, data)
 	var resp ct.GossipExchangeResponse
-	httpRsp, body, err := c.PostAndParse(ctx, ct.GossipExchangePath, &req, &resp)
+	_, _, err := c.PostAndParse(ctx, ct.GossipExchangePath, &req, &resp)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("PostGossipExchange HTTP Response,Body\n------\n%s\n------\n%s\n---------", httpRsp, body)
 
 	return &resp, nil
 }
