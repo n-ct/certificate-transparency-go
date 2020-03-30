@@ -37,6 +37,7 @@ import (
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/trillian/feeder"
+	_ "github.com/google/trillian"
 	"github.com/google/trillian/monitoring"
 
 	any "github.com/golang/protobuf/ptypes/any"
@@ -259,9 +260,12 @@ func (g *Gossiper) CheckCanSubmit(ctx context.Context) error {
 func (g *Gossiper) Run(ctx context.Context) {
 	glog.Infof("starting Gossip Listener: %+v", g)
 	sths := make(chan sthInfo, g.bufferSize)
+	// clientTreeMap := make(map[string]*trillian.Tree)
 
 	var wg sync.WaitGroup
 	wg.Add(len(g.srcs))
+	mouth := feeder.InitializeFeeder(ctx, g.rpcEndpoint, g.GetAllSrcLogUrls())
+	glog.Infof("InitializedFeeder: \n%+v\n", mouth)
 	for _, src := range g.srcs {
 		go func(src *sourceLog) {
 			defer wg.Done()
@@ -293,6 +297,16 @@ func (g *Gossiper) Run(ctx context.Context) {
 
 	wg.Wait()
 	close(sths)
+}
+
+func (g *Gossiper) GetAllSrcLogUrls() ([]string) {
+	urls := make([]string, len(g.srcs))
+	i := 0
+	for _, src := range g.srcs {
+		urls[i] = src.URL
+		i += 1
+	}
+	return urls
 }
 
 func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
@@ -359,7 +373,7 @@ func (g *Gossiper) HandleGossipListener(rw http.ResponseWriter, req *http.Reques
 		glog.Warningf("HandleGossipListener: Could not decode Gossip Request %v", err)
 	}
 	glog.Infof("HandleGossipListener: \n%v\n", gossipReq)
-	feeder.Feed(context.Background(), g.rpcEndpoint, gossipReq)
+	// feeder.Feed(context.Background(), gossipReq)
 
 
 	// gossipReq, err := gossip.EncodeGossipResponse(rw, req)

@@ -24,7 +24,6 @@ import (
 	_ "github.com/google/trillian/monitoring/opencensus"
 	"github.com/google/trillian/monitoring/prometheus"
 	_ "github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/rs/cors"
 	"github.com/tomasen/realip"
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/balancer/roundrobin"
@@ -56,45 +55,69 @@ var (
 
 const unknownRemoteUser = "UNKNOWN_REMOTE"
 
-func Feed(ctx context.Context, rpcEndpoint string, gossipReq ct.GossipExchangeRequest) (error){
-  flag.Parse()
+type Mouth struct {
+  keepConnAlive *grpc.ClientConn
+  tladmin trillian.TrillianAdminClient
+  tlclient trillian.TrillianLogClient
+  ClientToTree map[string]*trillian.Tree
+}
 
-  // LOG RPC Backend is specified by string
+/// Dial Backend
+func InitializeFeeder(ctx context.Context, rpcEndpoint string, logUrls []string) (*Mouth) {
   dialOpts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBlock()}
   glog.Infof("Dialling backend: /%v/ with opts /%v/", rpcBackend, dialOpts)
   conn, err := grpc.Dial(rpcEndpoint, dialOpts...)
   if err != nil {
     glog.Exitf("Could not dial RPC server: %v: %v", rpcBackend, err)
   } else {
-    glog.Warningf("Successfully dialed Trillian RPC server: %v", rpcBackend)
+    glog.Infof("Successfully dialed Trillian RPC server: %v", rpcBackend)
   }
   defer conn.Close()
-  tladmin := trillian.NewTrillianAdminClient(conn)
-  tlclient := trillian.NewTrillianLogClient(conn)
 
-  gossiperMux := http.NewServeMux()
-	corsHandler := cors.AllowAll().Handler(gossiperMux)
-	http.Handle("/", corsHandler)
+  mouth := &Mouth{
+    keepConnAlive: conn,
+    tladmin: trillian.NewTrillianAdminClient(conn),
+    tlclient: trillian.NewTrillianLogClient(conn),
+    ClientToTree: make(map[string]*trillian.Tree),
+  }
+  var tree *trillian.Tree
+  for i, v := range logUrls {
+    tree, err = CreateAndInitTree(ctx, mouth)
+    if err != nil {
+      glog.Fatalf("could not create tree(%v|%v): %+v", i,v, err)
+    }
+    mouth.ClientToTree[v] = tree
+    glog.Infof("Created %v of %v trees", i+1, len(logUrls))
+  }
+  return mouth
+}
 
-	req := newCreateDefaultTreeRequest()
-	if req == nil {
-    glog.Fatalf ("CANNOT CREATE NEW TREE REQUEST")
-    return fmt.Errorf("CANNOT CREATE NEW TREE REQUEST")
-	}
-	tree, err := client.CreateAndInitTree(ctx, req, tladmin, nil, tlclient)
-	if err != nil {
-		glog.Fatalf ("CANNOT CREATE AND INIT TREE: %+v", err)
-    return fmt.Errorf("CANNOT CREATE AND INIT TREE: %+v", err)
-	}
+func CreateAndInitTree(ctx context.Context, mouth *Mouth) (*trillian.Tree, error) {
+  req := newCreateDefaultTreeRequest()
+  if req == nil {
+    glog.Warningf ("CANNOT CREATE NEW TREE REQUEST")
+    return nil, fmt.Errorf("Could not create new tree request")
+  }
 
-	glog.Infof("Connected to Client \"%v\": %T", tlclient, tlclient)
-	tl := &trillian.LogLeaf{LeafValue: []byte("somecustomdata1212121")}
-	q := &trillian.QueueLeafRequest{LogId: tree.TreeId, Leaf: tl}
-	r, err := tlclient.QueueLeaf(ctx, q)
-	if err != nil{
-		glog.Fatalf("Could not queue leaf:\n----- %+v\n------", err)
-	}
-	glog.Infof("Data \\Was/ QUEUED!: \n%+s\n---------\n%+q\n", q,r)
+  tree, err := client.CreateAndInitTree(ctx, req, mouth.tladmin, nil, mouth.tlclient)
+  if err != nil {
+    glog.Warningf ("CANNOT CREATE AND INIT TREE: %+v", err)
+    return nil, fmt.Errorf("Could not create and init tree: %+v", err)
+  }
+
+  return tree, nil
+}
+
+func Feed(ctx context.Context, gossipReq ct.GossipExchangeRequest) (error){
+  flag.Parse()
+
+  tl := &trillian.LogLeaf{LeafValue: []byte("somecustomdata1212121")}
+	q := &trillian.QueueLeafRequest{LogId: 2, Leaf: tl}
+	// r, err := tlclient.QueueLeaf(ctx, q)
+	// if err != nil{
+	// 	glog.Fatalf("Could not queue leaf:\n----- %+v\n------", err)
+	// }
+	glog.Infof("Data \\Was/ QUEUED!: \n%+s\n---------\n%+q\n", q,tl)
 
   return nil
 }
