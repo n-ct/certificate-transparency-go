@@ -25,7 +25,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
-	any "github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/gossip/minimal/configpb"
 	"github.com/google/certificate-transparency-go/jsonclient"
@@ -194,7 +193,7 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 		/// TODO: input sanitization for gossipListenAddr, rpcEndpoint
 		gossipListenAddr: cfg.GossipListenAddr,
 		rpcEndpoint: cfg.RpcEndpoint,
-		privateKey: *any.Any(keyProto.Message),
+		privateKey: cfg.PrivateKey,
 		signer:     signer,
 		root:       root,
 		dests:      dests,

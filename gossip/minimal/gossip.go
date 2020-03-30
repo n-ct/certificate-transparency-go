@@ -275,7 +275,6 @@ func (g *Gossiper) Run(ctx context.Context) {
 		g.Listen(ctx)
 		glog.Info("finished Gossip Listener")
 	} ()
-	feeder.Feed(context.Background(), g.rpcEndpoint, &g.signer)
 
 	///////////////////////////////////
 	// glog.Info("starting Submitter")
@@ -360,7 +359,7 @@ func (g *Gossiper) HandleGossipListener(rw http.ResponseWriter, req *http.Reques
 		glog.Warningf("HandleGossipListener: Could not decode Gossip Request %v", err)
 	}
 	glog.Infof("HandleGossipListener: \n%v\n", gossipReq)
-	// feeder.Feed(context.Background(), g.rpcEndpoint, g.root, &g.signer)
+	feeder.Feed(context.Background(), g.rpcEndpoint, gossipReq)
 
 
 	// gossipReq, err := gossip.EncodeGossipResponse(rw, req)

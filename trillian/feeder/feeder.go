@@ -5,13 +5,13 @@ import (
 	"flag"
   "fmt"
 	"net/http"
-  "crypto"
 	_ "os"
 	_ "os/signal"
 	_ "sync"
 	_ "syscall"
 	"time"
 
+  ct "github.com/google/certificate-transparency-go"
 	_ "github.com/coreos/etcd/clientv3"
 	_ "github.com/coreos/etcd/clientv3/naming"
 	"github.com/golang/glog"
@@ -56,7 +56,7 @@ var (
 
 const unknownRemoteUser = "UNKNOWN_REMOTE"
 
-func Feed(ctx context.Context, rpcEndpoint string, privateKey *crypto.Signer) (error){
+func Feed(ctx context.Context, rpcEndpoint string, gossipReq ct.GossipExchangeRequest) (error){
   flag.Parse()
 
   // LOG RPC Backend is specified by string
@@ -75,23 +75,6 @@ func Feed(ctx context.Context, rpcEndpoint string, privateKey *crypto.Signer) (e
   gossiperMux := http.NewServeMux()
 	corsHandler := cors.AllowAll().Handler(gossiperMux)
 	http.Handle("/", corsHandler)
-
-	// setupAndRegister
-	inst, err := setupAndRegister(ctx, tlclient, rpcDeadline, &configpb.LogConfig{
-      LogId: 1,
-      Prefix: "my-prefix-1",
-      OverrideHandlerPrefix: "/",
-      RootsPemFile: []string{"../testdata/fake-ca.cert"},
-    }, gossiperMux, handlerPrefix, maskInternalErrors)
-	if err != nil {
-		glog.Exitf("Failed to set up log instance for %+v: %v", rpcEndpoint, err)
-	} else {
-		glog.Infof("Set up and Registered:\n----- %+v\n------", rpcEndpoint)
-	}
-  //forces internal STH sync
-	if *getSTHInterval > 0 {
-		go inst.RunUpdateSTH(ctx, *getSTHInterval)
-	}
 
 	req := newCreateDefaultTreeRequest()
 	if req == nil {
