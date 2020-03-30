@@ -40,6 +40,7 @@ import (
 const (
 	defaultRateHz      = 1.0
 	defaultMinInterval = 1 * time.Second
+	overrideNeedPrivKey = true
 )
 
 // NewGossiperFromFile creates a gossiper from the given filename, which should
@@ -106,11 +107,11 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 
 	var signer crypto.Signer
 	var root *x509.Certificate
-	if needPrivKey {
+	var keyProto ptypes.DynamicAny
+	if needPrivKey || overrideNeedPrivKey {
 		if cfg.PrivateKey == nil {
 			return nil, errors.New("no private key found")
 		}
-		var keyProto ptypes.DynamicAny
 		if err := ptypes.UnmarshalAny(cfg.PrivateKey, &keyProto); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal cfg.PrivateKey: %v", err)
 		}
@@ -189,9 +190,10 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 	}
 
 	return &Gossiper{
-		// TODO: input sanitization
+		/// TODO: input sanitization for gossipListenAddr, rpcEndpoint
 		gossipListenAddr: cfg.GossipListenAddr,
 		rpcEndpoint: cfg.RpcEndpoint,
+		privateKey: cfg.PrivateKey,
 		signer:     signer,
 		root:       root,
 		dests:      dests,

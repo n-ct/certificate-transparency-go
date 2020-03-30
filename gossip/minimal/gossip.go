@@ -36,8 +36,10 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/certificate-transparency-go/trillian/feeder"
 	"github.com/google/trillian/monitoring"
 
+	any "github.com/golang/protobuf/ptypes/any"
 	ct "github.com/google/certificate-transparency-go"
 	logclient "github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/gossip"
@@ -228,6 +230,7 @@ type monitor struct {
 type Gossiper struct {
 	gossipListenAddr string
 	rpcEndpoint string
+	privateKey *any.Any
 	signer     crypto.Signer
 	root       *x509.Certificate
 	dests      map[string]*destHub
@@ -254,6 +257,7 @@ func (g *Gossiper) CheckCanSubmit(ctx context.Context) error {
 // Run starts a gossiper set of goroutines.  It should be terminated by cancelling
 // the passed-in context.
 func (g *Gossiper) Run(ctx context.Context) {
+	glog.Infof("starting Gossip Listener: %+v", g)
 	sths := make(chan sthInfo, g.bufferSize)
 
 	var wg sync.WaitGroup
@@ -270,7 +274,8 @@ func (g *Gossiper) Run(ctx context.Context) {
 		glog.Info("starting Gossip Listener")
 		g.Listen(ctx)
 		glog.Info("finished Gossip Listener")
-	}()
+	} ()
+
 	///////////////////////////////////
 	// glog.Info("starting Submitter")
 	// g.Submitter(ctx, sths)
@@ -349,8 +354,15 @@ func (g *Gossiper) Listen(ctx context.Context) {
 }
 
 func (g *Gossiper) HandleGossipListener(rw http.ResponseWriter, req *http.Request) {
-	gossipReq, gossipResp := gossip.DecodeGossipListener(rw, req)
-	glog.Infof("HandleGossipListener: \n%v\n-------\n%v\n", gossipReq, gossipResp)
+	gossipReq, err := gossip.DecodeGossipRequest(rw, req)
+	if err != nil{
+		glog.Warningf("HandleGossipListener: Could not decode Gossip Request %v", err)
+	}
+	glog.Infof("HandleGossipListener: \n%v\n", gossipReq)
+	feeder.Feed(context.Background(), g.rpcEndpoint, gossipReq)
+
+
+	// gossipReq, err := gossip.EncodeGossipResponse(rw, req)
 }
 
 // Submitter periodically services the provided channel and submits the
