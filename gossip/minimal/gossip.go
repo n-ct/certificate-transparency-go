@@ -35,16 +35,16 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/schedule"
-	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/trillian/feeder"
+	"github.com/google/certificate-transparency-go/x509"
 	_ "github.com/google/trillian"
 	"github.com/google/trillian/monitoring"
 
 	any "github.com/golang/protobuf/ptypes/any"
 	ct "github.com/google/certificate-transparency-go"
 	logclient "github.com/google/certificate-transparency-go/client"
-	hubclient "github.com/google/trillian-examples/gossip/client"
 	"github.com/google/certificate-transparency-go/gossip"
+	hubclient "github.com/google/trillian-examples/gossip/client"
 
 	// Register PEMKeyFile ProtoHandler
 	_ "github.com/google/trillian/crypto/keys/pem/proto"
@@ -98,7 +98,7 @@ type logConfig struct {
 type monitorConfig struct {
 	Name          string
 	URL           string
-	HttpClient *logclient.LogClient
+	HttpClient    *logclient.LogClient
 	lastBroadcast map[string]time.Time
 }
 
@@ -230,14 +230,14 @@ type monitor struct {
 // the STH value embedded in it.
 type Gossiper struct {
 	gossipListenAddr string
-	rpcEndpoint string
-	privateKey *any.Any
-	signer     crypto.Signer
-	root       *x509.Certificate
-	dests      map[string]*destHub
-	srcs       map[string]*sourceLog
-	monitors   map[string]*monitor
-	bufferSize int
+	rpcEndpoint      string
+	privateKey       *any.Any
+	signer           crypto.Signer
+	root             *x509.Certificate
+	dests            map[string]*destHub
+	srcs             map[string]*sourceLog
+	monitors         map[string]*monitor
+	bufferSize       int
 }
 
 // CheckCanSubmit checks whether the gossiper can submit STHs to all destination hubs.
@@ -274,11 +274,11 @@ func (g *Gossiper) Run(ctx context.Context) {
 			glog.Infof("finished Retriever(%s)", src.Name)
 		}(src)
 	}
-	go func(){
+	go func() {
 		glog.Info("starting Gossip Listener")
 		g.Listen(ctx)
 		glog.Info("finished Gossip Listener")
-	} ()
+	}()
 
 	///////////////////////////////////
 	// glog.Info("starting Submitter")
@@ -299,7 +299,7 @@ func (g *Gossiper) Run(ctx context.Context) {
 	close(sths)
 }
 
-func (g *Gossiper) GetAllSrcLogUrls() ([]string) {
+func (g *Gossiper) GetAllSrcLogUrls() []string {
 	urls := make([]string, len(g.srcs))
 	i := 0
 	for _, src := range g.srcs {
@@ -326,12 +326,12 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 			for _, monitor := range g.monitors {
 				glog.Infof("Broadcaster: info (%s)->(%s)", src.Name, monitor.Name)
 				ack, err := monitor.HttpClient.PostGossipExchange(ctx, ct.GossipExchangeRequest{
-					LogURL: src.URL,
-					STH: *info.sth,
+					LogURL:       src.URL,
+					STH:          *info.sth,
 					IsConsistent: true,
-					Proof: []ct.MerkleTreeNode{},
+					Proof:        []ct.MerkleTreeNode{},
 				})
-				if err != nil{
+				if err != nil {
 					glog.Errorf("Broadcaster: Acknowledgement for %s failed. Error: %s", monitor.Name, err)
 				}
 				glog.Infof("Broadcaster: Retrieved Acknowledgement (%s)->(%s)\n%s", src.Name, monitor.Name, ack)
@@ -369,12 +369,11 @@ func (g *Gossiper) Listen(ctx context.Context) {
 
 func (g *Gossiper) HandleGossipListener(rw http.ResponseWriter, req *http.Request) {
 	gossipReq, err := gossip.DecodeGossipRequest(rw, req)
-	if err != nil{
+	if err != nil {
 		glog.Warningf("HandleGossipListener: Could not decode Gossip Request %v", err)
 	}
 	glog.Infof("HandleGossipListener: \n%v\n", gossipReq)
 	// feeder.Feed(context.Background(), gossipReq)
-
 
 	// gossipReq, err := gossip.EncodeGossipResponse(rw, req)
 }
