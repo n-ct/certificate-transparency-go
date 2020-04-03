@@ -38,8 +38,8 @@ import (
 )
 
 const (
-	defaultRateHz      = 1.0
-	defaultMinInterval = 1 * time.Second
+	defaultRateHz       = 1.0
+	defaultMinInterval  = 1 * time.Second
 	overrideNeedPrivKey = true
 )
 
@@ -192,14 +192,14 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 	return &Gossiper{
 		/// TODO: input sanitization for gossipListenAddr, rpcEndpoint
 		gossipListenAddr: cfg.GossipListenAddr,
-		rpcEndpoint: cfg.RpcEndpoint,
-		privateKey: cfg.PrivateKey,
-		signer:     signer,
-		root:       root,
-		dests:      dests,
-		srcs:       srcs,
-		monitors:   monitors,
-		bufferSize: int(cfg.BufferSize),
+		rpcEndpoint:      cfg.RpcEndpoint,
+		privateKey:       cfg.PrivateKey,
+		signer:           signer,
+		root:             root,
+		dests:            dests,
+		srcs:             srcs,
+		monitors:         monitors,
+		bufferSize:       int(cfg.BufferSize),
 	}, nil
 }
 

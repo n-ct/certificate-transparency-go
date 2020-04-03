@@ -214,10 +214,10 @@ func (m *MonitorConfig) GetUrl() string {
 
 // GossipConfig describes the configuration of a gossiper.
 type GossipConfig struct {
-	// The Address:Port on which Gossip Exchanges will happen 
+	// The Address:Port on which Gossip Exchanges will happen
 	GossipListenAddr string `protobuf:"bytes,2,opt,name=gossip_listen_addr,proto3" json:"gossip_listen_addr,omitempty"`
 	// the RPC endpoint for Trillian
-	RpcEndpoint	string `protobuf:"bytes,2,opt,name=rpc_endpoint,proto3" json:"rpc_endpoint,omitempty"`
+	RpcEndpoint string `protobuf:"bytes,2,opt,name=rpc_endpoint,proto3" json:"rpc_endpoint,omitempty"`
 	// The source logs whose STHs will be logged.
 	SourceLog []*LogConfig     `protobuf:"bytes,1,rep,name=source_log,json=sourceLog,proto3" json:"source_log,omitempty"`
 	Monitor   []*MonitorConfig `protobuf:"bytes,1,rep,name=monitor,json=monitor,proto3" json:"monitor,omitempty"`
@@ -264,7 +264,6 @@ func (m *GossipConfig) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_GossipConfig proto.InternalMessageInfo
-
 
 func (m *GossipConfig) GetGossipListenAddr() string {
 	if m != nil {
