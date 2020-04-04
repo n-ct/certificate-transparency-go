@@ -52,6 +52,7 @@ import (
 
 var (
 	once sync.Once
+	mouth *feeder.Mouth
 
 	// Per source-log (label "logname") metrics.
 	knownSourceLogs          monitoring.Gauge   // logname => value (always 1.0)
@@ -260,11 +261,10 @@ func (g *Gossiper) CheckCanSubmit(ctx context.Context) error {
 func (g *Gossiper) Run(ctx context.Context) {
 	glog.Infof("starting Gossip Listener: %+v", g)
 	sths := make(chan sthInfo, g.bufferSize)
-	// clientTreeMap := make(map[string]*trillian.Tree)
 
 	var wg sync.WaitGroup
 	wg.Add(len(g.srcs))
-	mouth := feeder.InitializeFeeder(ctx, g.rpcEndpoint, g.GetAllSrcLogUrls())
+	mouth = feeder.InitializeFeeder(ctx, g.rpcEndpoint, g.GetAllSrcLogUrls())
 	glog.Infof("InitializedFeeder: \n%+v\n", mouth)
 	for _, src := range g.srcs {
 		go func(src *sourceLog) {
@@ -360,7 +360,7 @@ func (g *Gossiper) Listen(ctx context.Context) {
 		}
 	}()
 
-	glog.Info("Listen: Listen&Serve on :6966/ct/v1/gossip-exchange")
+	glog.Infof("Listen: Listen&Serve on %v/ct/v1/gossip-exchange", g.gossipListenAddr)
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		// Error starting or closing listener:
 		glog.Fatalf("HTTP server ListenAndServe: %v", err)
@@ -373,7 +373,7 @@ func (g *Gossiper) HandleGossipListener(rw http.ResponseWriter, req *http.Reques
 		glog.Warningf("HandleGossipListener: Could not decode Gossip Request %v", err)
 	}
 	glog.Infof("HandleGossipListener: \n%v\n", gossipReq)
-	// feeder.Feed(context.Background(), gossipReq)
+	feeder.Feed(context.Background(), gossipReq, mouth)
 
 	// gossipReq, err := gossip.EncodeGossipResponse(rw, req)
 }

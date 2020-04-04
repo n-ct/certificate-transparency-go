@@ -189,9 +189,14 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 		}
 	}
 
+	listenOn := ":6966"
+	if cfg.GossipListenAddr != "" {
+		listenOn = cfg.GossipListenAddr
+	}
+
 	return &Gossiper{
 		/// TODO: input sanitization for gossipListenAddr, rpcEndpoint
-		gossipListenAddr: cfg.GossipListenAddr,
+		gossipListenAddr: listenOn,
 		rpcEndpoint:      cfg.RpcEndpoint,
 		privateKey:       cfg.PrivateKey,
 		signer:           signer,

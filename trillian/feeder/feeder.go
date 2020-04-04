@@ -108,16 +108,16 @@ func CreateAndInitTree(ctx context.Context, mouth *Mouth) (*trillian.Tree, error
 	return tree, nil
 }
 
-func Feed(ctx context.Context, gossipReq ct.GossipExchangeRequest) error {
+func Feed(ctx context.Context, gossipReq ct.GossipExchangeRequest, mouth *Mouth) error {
 	flag.Parse()
 
 	tl := &trillian.LogLeaf{LeafValue: []byte("somecustomdata1212121")}
-	q := &trillian.QueueLeafRequest{LogId: 2, Leaf: tl}
-	// r, err := tlclient.QueueLeaf(ctx, q)
-	// if err != nil{
-	// 	glog.Fatalf("Could not queue leaf:\n----- %+v\n------", err)
-	// }
-	glog.Infof("Data \\Was/ QUEUED!: \n%+s\n---------\n%+q\n", q, tl)
+	q := &trillian.QueueLeafRequest{LogId: mouth.ClientToTree[gossipReq.LogURL].TreeId, Leaf: tl}
+	r, err := mouth.tlclient.QueueLeaf(ctx, q)
+	if err != nil{
+		glog.Fatalf("Could not queue leaf:\n----- %+v\n------", err)
+	}
+	glog.Infof("Data \\Was/ QUEUED!: \n%+s\n---------\n%+q\n", q, r)
 
 	return nil
 }
