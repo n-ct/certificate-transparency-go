@@ -35,8 +35,9 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/schedule"
-	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/trillian/feeder"
+	"github.com/google/certificate-transparency-go/x509"
+	_ "github.com/google/trillian"
 	"github.com/google/trillian/monitoring"
 
 	any "github.com/golang/protobuf/ptypes/any"
@@ -51,6 +52,7 @@ import (
 
 var (
 	once sync.Once
+	mouth *feeder.Mouth
 
 	// Per source-log (label "logname") metrics.
 	knownSourceLogs          monitoring.Gauge   // logname => value (always 1.0)
@@ -229,14 +231,14 @@ type monitor struct {
 // the STH value embedded in it.
 type Gossiper struct {
 	gossipListenAddr string
-	rpcEndpoint string
-	privateKey *any.Any
-	signer     crypto.Signer
-	root       *x509.Certificate
-	dests      map[string]*destHub
-	srcs       map[string]*sourceLog
-	monitors   map[string]*monitor
-	bufferSize int
+	rpcEndpoint      string
+	privateKey       *any.Any
+	signer           crypto.Signer
+	root             *x509.Certificate
+	dests            map[string]*destHub
+	srcs             map[string]*sourceLog
+	monitors         map[string]*monitor
+	bufferSize       int
 }
 
 // CheckCanSubmit checks whether the gossiper can submit STHs to all destination hubs.
@@ -262,6 +264,8 @@ func (g *Gossiper) Run(ctx context.Context) {
 
 	var wg sync.WaitGroup
 	wg.Add(len(g.srcs))
+	mouth = feeder.InitializeFeeder(ctx, g.rpcEndpoint, g.GetAllSrcLogUrls())
+	glog.Infof("InitializedFeeder: \n%+v\n", mouth)
 	for _, src := range g.srcs {
 		go func(src *sourceLog) {
 			defer wg.Done()
@@ -274,7 +278,7 @@ func (g *Gossiper) Run(ctx context.Context) {
 		glog.Info("starting Gossip Listener")
 		g.Listen(ctx)
 		glog.Info("finished Gossip Listener")
-	} ()
+	}()
 
 	///////////////////////////////////
 	// glog.Info("starting Submitter")
@@ -293,6 +297,16 @@ func (g *Gossiper) Run(ctx context.Context) {
 
 	wg.Wait()
 	close(sths)
+}
+
+func (g *Gossiper) GetAllSrcLogUrls() []string {
+	urls := make([]string, len(g.srcs))
+	i := 0
+	for _, src := range g.srcs {
+		urls[i] = src.URL
+		i += 1
+	}
+	return urls
 }
 
 func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
@@ -346,7 +360,7 @@ func (g *Gossiper) Listen(ctx context.Context) {
 		}
 	}()
 
-	glog.Info("Listen: Listen&Serve on :6966/ct/v1/gossip-exchange")
+	glog.Infof("Listen: Listen&Serve on %v/ct/v1/gossip-exchange", g.gossipListenAddr)
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		// Error starting or closing listener:
 		glog.Fatalf("HTTP server ListenAndServe: %v", err)
@@ -355,12 +369,11 @@ func (g *Gossiper) Listen(ctx context.Context) {
 
 func (g *Gossiper) HandleGossipListener(rw http.ResponseWriter, req *http.Request) {
 	gossipReq, err := gossip.DecodeGossipRequest(rw, req)
-	if err != nil{
+	if err != nil {
 		glog.Warningf("HandleGossipListener: Could not decode Gossip Request %v", err)
 	}
 	glog.Infof("HandleGossipListener: \n%v\n", gossipReq)
-	feeder.Feed(context.Background(), g.rpcEndpoint, gossipReq)
-
+	feeder.Feed(context.Background(), gossipReq, mouth)
 
 	// gossipReq, err := gossip.EncodeGossipResponse(rw, req)
 }

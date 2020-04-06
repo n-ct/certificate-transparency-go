@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
@@ -172,7 +171,6 @@ func EncodeGossipResponse(rw http.ResponseWriter, req *http.Request) (ct.GossipE
 
 	return gossipResp, nil
 }
-
 
 // NewHandler creates a new Handler object, taking a pointer a Storage object to
 // use for storing and retrieving feedback and pollination data, and a
