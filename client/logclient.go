@@ -254,6 +254,7 @@ func (c *LogClient) GetEntryAndProof(ctx context.Context, index, treeSize uint64
 	return &resp, nil
 }
 
+// PostGossipExchange is used by a Gossiper to broadcast messages to other monitor/gossipers
 func (c *LogClient) PostGossipExchange(ctx context.Context, data ct.GossipExchangeRequest) (*ct.GossipExchangeResponse, error) {
 	req := ct.GossipExchangeRequest{
 		LogURL:       data.LogURL,
@@ -261,13 +262,13 @@ func (c *LogClient) PostGossipExchange(ctx context.Context, data ct.GossipExchan
 		IsConsistent: data.IsConsistent,
 		Proof:        data.Proof,
 	}
-	fmt.Printf("PostGossipExchange: Broadcasting to (%s) | (%s)\n", req.LogURL, data)
+	fmt.Printf("PostGossipExchange: Broadcasting to (%s) | (%v)\n", req.LogURL, data)
 	var resp ct.GossipExchangeResponse
 	httpRsp, body, err := c.PostAndParse(ctx, ct.GossipExchangePath, &req, &resp)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("PostGossipExchange HTTP Response,Body\n------\n%s\n------\n%s\n---------", httpRsp, body)
+	fmt.Printf("PostGossipExchange HTTP Response,Body\n------\n%v\n------\n%s\n---------", httpRsp, body)
 
 	return &resp, nil
 }

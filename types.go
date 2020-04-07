@@ -575,6 +575,8 @@ type GetEntryAndProofResponse struct {
 	AuditPath [][]byte `json:"audit_path"` // the corresponding proof
 }
 
+// GossipExchangeRequest represents the JSON request body sent to a gossiper/monitor
+// via the PostGossipExchange method
 type GossipExchangeRequest struct {
 	LogURL       string           `json:"logUrl"`
 	STH          SignedTreeHead   `json:"sth"`
@@ -582,6 +584,8 @@ type GossipExchangeRequest struct {
 	Proof        ConsistencyProof `json:"proof"`
 }
 
+// GossipExchangeResponse represents the JSON resopnse that a gossiper/monitor
+// sends back after processing a Gossiped message
 type GossipExchangeResponse struct {
 	Acknowledged bool           `json:"acknowledged"`
 	LogURL       string         `json:"logUrl"`

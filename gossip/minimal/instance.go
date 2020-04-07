@@ -78,7 +78,6 @@ func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Clien
 	return NewBoundaryGossiper(ctx, cfg, hc, hc, mf)
 }
 
-/// TODO: register all monitors to gossiper.monintors
 // NewBoundaryGossiper creates a gossiper from the given configuration protobuf
 // and a pair of http.Client instances for source logs and destination hubs,
 // to allow (for example) gossiping across (some kinds of) network boundaries.
@@ -91,7 +90,7 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 		return nil, errors.New("no source log config found")
 	}
 	if len(cfg.Monitor) == 0 {
-		return nil, errors.New("no monitor config found")
+		glog.Warningf("No monitors found; Running in compatibility mode")
 	}
 
 	needPrivKey := false
@@ -240,7 +239,7 @@ func monitorConfigFromProto(cfg *configpb.MonitorConfig, hc *http.Client) (*moni
 	return &monitorConfig{
 		Name:          cfg.Name,
 		URL:           cfg.Url,
-		HttpClient:    client,
+		HTTPClient:    client,
 		lastBroadcast: make(map[string]time.Time),
 	}, nil
 }

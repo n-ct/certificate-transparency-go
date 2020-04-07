@@ -95,7 +95,7 @@ type logConfig struct {
 type monitorConfig struct {
 	Name          string
 	URL           string
-	HttpClient    *logclient.LogClient
+	HTTPClient    *logclient.LogClient
 	lastBroadcast map[string]time.Time
 }
 
@@ -215,7 +215,7 @@ type sourceLog struct {
 
 type monitor struct {
 	monitorConfig
-	mu sync.Mutex
+	// mu sync.Mutex // linter complains that mu is unused, so it's being muted.
 }
 
 /// ---------------------------------
@@ -244,12 +244,12 @@ func (g *Gossiper) CheckCanSubmit(ctx context.Context) error {
 	return nil
 }
 
+// Run starts a gossiper set of goroutines.  It should be terminated by cancelling
+// the passed-in context.
 /// 1. create channel for STHs
 /// 2. add all source logs to gossiper waitgroup
 /// 3. Periodically retreieve STH from each source log concurrently
 /// 4. Submit any newly received STHs to a list of destinations
-// Run starts a gossiper set of goroutines.  It should be terminated by cancelling
-// the passed-in context.
 func (g *Gossiper) Run(ctx context.Context) {
 	sths := make(chan sthInfo, g.bufferSize)
 
@@ -287,6 +287,7 @@ func (g *Gossiper) Run(ctx context.Context) {
 	close(sths)
 }
 
+// Broadcast transmits retrieved sthInfo to other monitors/gossipers
 func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 	for {
 		select {
@@ -301,10 +302,9 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 				glog.Errorf("Broadcast: Broadcasting(%s) for unknown source log", fromLog)
 			}
 
-			/// TODO: broadcast STH and other info to each monitor
 			for _, monitor := range g.monitors {
 				glog.Infof("Broadcaster: info (%s)->(%s)", src.Name, monitor.Name)
-				ack, err := monitor.HttpClient.PostGossipExchange(ctx, ct.GossipExchangeRequest{
+				ack, err := monitor.HTTPClient.PostGossipExchange(ctx, ct.GossipExchangeRequest{
 					LogURL:       src.URL,
 					STH:          *info.sth,
 					IsConsistent: true,
@@ -313,12 +313,13 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 				if err != nil {
 					glog.Errorf("Broadcaster: Acknowledgement for %s failed. Error: %s", monitor.Name, err)
 				}
-				glog.Infof("Broadcaster: Retrieved Acknowledgement (%s)->(%s)\n%s", src.Name, monitor.Name, ack)
+				glog.Infof("Broadcaster: Retrieved Acknowledgement (%s)->(%s)\n%v", src.Name, monitor.Name, ack)
 			}
 		}
 	}
 }
 
+// Listen allows GossipExchange messages to be received
 func (g *Gossiper) Listen(ctx context.Context) {
 	glog.Info("[Listen] Actually Starting Listener")
 	serveMux := http.NewServeMux()
@@ -462,11 +463,11 @@ func (src *sourceLog) GetNewerSTH(ctx context.Context, g *Gossiper) (*ct.SignedT
 	return sth, nil
 }
 
-// GetNewerEntries retrieves [start_index, end_index] newest entries from the source log
+// GetNewerEntries retrieves [startIndex, endIndex] newest entries from the source log
 // and returns new entries, as available
 func (src *sourceLog) GetNewerEntries(ctx context.Context, g *Gossiper, lastSTH, newSTH *ct.SignedTreeHead) ([]ct.LogEntry, error) {
 	newTreeSize := newSTH.TreeSize
-	if newTreeSize <= 0 {
+	if newTreeSize == 0 {
 		return nil, fmt.Errorf("Logger has no certificates: newTreeSize is (%v)", lastSTH)
 	}
 	if lastSTH == nil {
@@ -475,9 +476,9 @@ func (src *sourceLog) GetNewerEntries(ctx context.Context, g *Gossiper, lastSTH,
 	prevTreeSize := lastSTH.TreeSize
 	glog.V(1).Infof("Retriever(%s): Previous Tree Size (%v)", src.Name, prevTreeSize)
 
-	start_index, end_index := int64(prevTreeSize+1), int64(prevTreeSize+newTreeSize)
-	glog.V(1).Infof("Get newer entries for source log %s from (%v) to (%v)", src.Name, start_index, end_index)
-	entries, err := src.Log.GetEntries(ctx, start_index, end_index)
+	startIndex, endIndex := int64(prevTreeSize+1), int64(prevTreeSize+newTreeSize)
+	glog.V(1).Infof("Get newer entries for source log %s from (%v) to (%v)", src.Name, startIndex, endIndex)
+	entries, err := src.Log.GetEntries(ctx, startIndex, endIndex)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get new entries: %v", err)
 	}
