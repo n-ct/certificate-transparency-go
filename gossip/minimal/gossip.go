@@ -35,9 +35,11 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/schedule"
+	"github.com/google/certificate-transparency-go/trillian/feeder"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/monitoring"
 
+	any "github.com/golang/protobuf/ptypes/any"
 	ct "github.com/google/certificate-transparency-go"
 	logclient "github.com/google/certificate-transparency-go/client"
 	"github.com/google/certificate-transparency-go/gossip"
@@ -48,7 +50,8 @@ import (
 )
 
 var (
-	once sync.Once
+	once   sync.Once
+	portal *feeder.Portal
 
 	// Per source-log (label "logname") metrics.
 	knownSourceLogs          monitoring.Gauge   // logname => value (always 1.0)
@@ -64,6 +67,8 @@ var (
 	writesCounter      monitoring.Counter // hubname => value
 	writeErrorsCounter monitoring.Counter // hubname => value
 )
+
+const self = "SELF"
 
 // setupMetrics initializes all the exported metrics.
 func setupMetrics(mf monitoring.MetricFactory) {
@@ -226,12 +231,15 @@ type monitor struct {
 // distributes it to a destination log in the form of an X.509 certificate with
 // the STH value embedded in it.
 type Gossiper struct {
-	signer     crypto.Signer
-	root       *x509.Certificate
-	dests      map[string]*destHub
-	srcs       map[string]*sourceLog
-	monitors   map[string]*monitor
-	bufferSize int
+	signer           crypto.Signer
+	root             *x509.Certificate
+	dests            map[string]*destHub
+	srcs             map[string]*sourceLog
+	monitors         map[string]*monitor
+	bufferSize       int
+	gossipListenAddr string
+	rpcEndpoint      string
+	privateKey       *any.Any
 }
 
 // CheckCanSubmit checks whether the gossiper can submit STHs to all destination hubs.
@@ -246,15 +254,19 @@ func (g *Gossiper) CheckCanSubmit(ctx context.Context) error {
 
 // Run starts a gossiper set of goroutines.  It should be terminated by cancelling
 // the passed-in context.
+/// -. Retrieve, Listen, Broadcast
 /// 1. create channel for STHs
 /// 2. add all source logs to gossiper waitgroup
 /// 3. Periodically retreieve STH from each source log concurrently
 /// 4. Submit any newly received STHs to a list of destinations
 func (g *Gossiper) Run(ctx context.Context) {
+	glog.Infof("starting Gossip Listener: %+v", g)
 	sths := make(chan sthInfo, g.bufferSize)
 
 	var wg sync.WaitGroup
 	wg.Add(len(g.srcs))
+	portal = feeder.InitializeFeeder(ctx, g.rpcEndpoint, g.getAllSrcLogUrls())
+	glog.Infof("InitializedFeederPortal")
 	for _, src := range g.srcs {
 		go func(src *sourceLog) {
 			defer wg.Done()
@@ -287,6 +299,17 @@ func (g *Gossiper) Run(ctx context.Context) {
 	close(sths)
 }
 
+func (g *Gossiper) getAllSrcLogUrls() []string {
+	urls := make([]string, len(g.srcs)+1)
+	urls[0] = self
+	i := 1
+	for _, src := range g.srcs {
+		urls[i] = src.URL
+		i++
+	}
+	return urls
+}
+
 // Broadcast transmits retrieved sthInfo to other monitors/gossipers
 func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 	for {
@@ -302,6 +325,10 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 				glog.Errorf("Broadcast: Broadcasting(%s) for unknown source log", fromLog)
 			}
 
+			/// Save STH Info to own database
+			saveSthInfo(info)
+
+			/// Send HTTP Request containing sthInfo to other monitors
 			for _, monitor := range g.monitors {
 				glog.Infof("Broadcaster: info (%s)->(%s)", src.Name, monitor.Name)
 				ack, err := monitor.HTTPClient.PostGossipExchange(ctx, ct.GossipExchangeRequest{
@@ -310,12 +337,27 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 					IsConsistent: true,
 					Proof:        []ct.MerkleTreeNode{},
 				})
-				if err != nil {
+				if err != nil || ack == nil {
 					glog.Errorf("Broadcaster: Acknowledgement for %s failed. Error: %s", monitor.Name, err)
+				} else {
+					glog.Infof("Broadcaster: Retrieved Acknowledgement (%s)->(%s)\n%v", src.Name, monitor.Name, ack)
 				}
-				glog.Infof("Broadcaster: Retrieved Acknowledgement (%s)->(%s)\n%v", src.Name, monitor.Name, ack)
 			}
 		}
+	}
+}
+
+func saveSthInfo(info sthInfo) {
+	err := feeder.Feed(context.Background(), ct.GossipExchangeRequest{
+		LogURL:       self,
+		STH:          *info.sth,
+		IsConsistent: true,
+		Proof:        []ct.MerkleTreeNode{},
+	}, portal)
+	if err != nil {
+		glog.Errorf("Could not save STH Info")
+	} else {
+		glog.Infof("Saved STH info to %v", portal.ClientToTreeMap[self].TreeId)
 	}
 }
 
@@ -323,11 +365,9 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 func (g *Gossiper) Listen(ctx context.Context) {
 	glog.Info("[Listen] Actually Starting Listener")
 	serveMux := http.NewServeMux()
-	serveMux.HandleFunc(ct.GossipExchangePath, gossip.HandleGossipListener)
+	serveMux.HandleFunc(ct.GossipExchangePath, g.HandleGossipListener)
 	server := &http.Server{
-		/// This should build from config
-		// Addr:    *listenAddress,
-		Addr:    ":6966",
+		Addr:    g.gossipListenAddr,
 		Handler: serveMux,
 	}
 	glog.Info("Listen: Created Server")
@@ -342,11 +382,28 @@ func (g *Gossiper) Listen(ctx context.Context) {
 		}
 	}()
 
-	glog.Info("Listen: Listen&Serve on :6966/ct/v1/gossip-exchange")
+	glog.Infof("Listen: Listen&Serve on %v/ct/v1/gossip-exchange", g.gossipListenAddr)
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		// Error starting or closing listener:
 		glog.Fatalf("HTTP server ListenAndServe: %v", err)
 	}
+}
+
+// HandleGossipListener is the HTTP handler to process and respond to GossipExchangeRequests
+func (g *Gossiper) HandleGossipListener(rw http.ResponseWriter, req *http.Request) {
+	gossipReq, err := gossip.DecodeGossipRequest(rw, req)
+	if err != nil {
+		glog.Warningf("HandleGossipListener: Could not decode Gossip Request %v", err)
+	}
+	glog.Infof("HandleGossipListener: GossipRequest\n%v\n", gossipReq)
+
+	feeder.Feed(context.Background(), gossipReq, portal)
+
+	gossipResp, err := gossip.EncodeGossipResponse(rw, gossipReq)
+	if err != nil {
+		glog.Warningf("HandleGossipListener: Could not decode Gossip Reqsponse %v", err)
+	}
+	glog.Infof("HandleGossipListener: GossipResponse\n%v\n", gossipResp)
 }
 
 // Submitter periodically services the provided channel and submits the

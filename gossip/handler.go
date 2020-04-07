@@ -134,20 +134,26 @@ func (h *Handler) HandleSTHPollination(rw http.ResponseWriter, req *http.Request
 	}
 }
 
-// HandleGossipListener handles requests POSTed to /ct/v1/gossip-exchange
-func HandleGossipListener(rw http.ResponseWriter, req *http.Request) {
+// DecodeGossipRequest decodes GossipExchangeRequests POSTed to /ct/v1/gossip-exchange
+func DecodeGossipRequest(rw http.ResponseWriter, req *http.Request) (ct.GossipExchangeRequest, error) {
 	if req.Method != "POST" {
 		writeWrongMethodResponse(&rw, "POST")
-		return
+		return ct.GossipExchangeRequest{}, fmt.Errorf("Wrong HTTP Method")
 	}
 
 	decoder := json.NewDecoder(req.Body)
 	var gossipReq ct.GossipExchangeRequest
 	if err := decoder.Decode(&gossipReq); err != nil {
 		writeErrorResponse(&rw, http.StatusBadRequest, fmt.Sprintf("Invalid Gossip Exchange received: %v", err))
-		return
+		return ct.GossipExchangeRequest{}, fmt.Errorf("Invalid Gossip Exchange received: %v", err)
 	}
 
+	return gossipReq, nil
+}
+
+// EncodeGossipResponse encodes a GossipExchangeResponse
+/// TODO: Process the request instead of saving and responding
+func EncodeGossipResponse(rw http.ResponseWriter, gossipReq ct.GossipExchangeRequest) (ct.GossipExchangeResponse, error) {
 	gossipResp := ct.GossipExchangeResponse{
 		Acknowledged: true,
 		LogURL:       gossipReq.LogURL,
@@ -155,15 +161,17 @@ func HandleGossipListener(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	rw.Header().Set("Content-Type", "application/json")
-	fmt.Printf("HandleGossipListener: %v\n", gossipResp)
+	fmt.Printf("EncodeGossipResponse: %v\n", gossipResp)
 
 	encoder := json.NewEncoder(rw)
 	if err := encoder.Encode(gossipResp); err != nil {
-		fmt.Println("HandleGossipListener: Encoding Failed :(")
-		writeErrorResponse(&rw, http.StatusInternalServerError, fmt.Sprintf("Couldn't encode pollination to return: %v", err))
-		return
+		fmt.Println("EncodeGossipResponse: Encoding Failed :(")
+		writeErrorResponse(&rw, http.StatusInternalServerError, fmt.Sprintf("Couldn't encode gossip response to return: %v", err))
+		return ct.GossipExchangeResponse{}, fmt.Errorf("Couldn't encode gossip response to return: %v", err)
 	}
-	fmt.Println("HandleGossipListener: Encoding Succeeded :)")
+	fmt.Println("EncodeGossipResponse: Encoding Succeeded :)")
+
+	return gossipResp, nil
 }
 
 // NewHandler creates a new Handler object, taking a pointer a Storage object to

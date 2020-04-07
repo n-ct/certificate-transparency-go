@@ -235,7 +235,7 @@ type GossipConfig struct {
 	// The Address:Port on which Gossip Exchanges will happen
 	GossipListenAddr string `protobuf:"bytes,7,opt,name=gossip_listen_addr,proto3" json:"gossip_listen_addr,omitempty"`
 	// the RPC endpoint for Trillian
-	RpcEndpoint          string   `protobuf:"bytes,8,opt,name=rpc_endpoint,proto3" json:"rpc_endpoint,omitempty"`
+	RPCEndpoint          string   `protobuf:"bytes,8,opt,name=rpc_endpoint,proto3" json:"rpc_endpoint,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -265,6 +265,20 @@ func (m *GossipConfig) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_GossipConfig proto.InternalMessageInfo
+
+func (m *GossipConfig) GetGossipListenAddr() string {
+	if m != nil {
+		return m.GossipListenAddr
+	}
+	return ""
+}
+
+func (m *GossipConfig) GetRpcEndpoint() string {
+	if m != nil {
+		return m.RPCEndpoint
+	}
+	return ""
+}
 
 func (m *GossipConfig) GetSourceLog() []*LogConfig {
 	if m != nil {
