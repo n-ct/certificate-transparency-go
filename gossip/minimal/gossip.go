@@ -51,8 +51,13 @@ import (
 )
 
 var (
+<<<<<<< HEAD
 	once sync.Once
 	mouth *feeder.Mouth
+=======
+	once   sync.Once
+	portal *feeder.Portal
+>>>>>>> fa5642c6a27737e318f88af75b448c07cec97e9b
 
 	// Per source-log (label "logname") metrics.
 	knownSourceLogs          monitoring.Gauge   // logname => value (always 1.0)
@@ -68,6 +73,8 @@ var (
 	writesCounter      monitoring.Counter // hubname => value
 	writeErrorsCounter monitoring.Counter // hubname => value
 )
+
+const self = "SELF"
 
 // setupMetrics initializes all the exported metrics.
 func setupMetrics(mf monitoring.MetricFactory) {
@@ -99,7 +106,7 @@ type logConfig struct {
 type monitorConfig struct {
 	Name          string
 	URL           string
-	HttpClient    *logclient.LogClient
+	HTTPClient    *logclient.LogClient
 	lastBroadcast map[string]time.Time
 }
 
@@ -219,7 +226,7 @@ type sourceLog struct {
 
 type monitor struct {
 	monitorConfig
-	mu sync.Mutex
+	// mu sync.Mutex // linter complains that mu is unused, so it's being muted.
 }
 
 /// ---------------------------------
@@ -230,15 +237,24 @@ type monitor struct {
 // distributes it to a destination log in the form of an X.509 certificate with
 // the STH value embedded in it.
 type Gossiper struct {
+<<<<<<< HEAD
 	gossipListenAddr string
 	rpcEndpoint      string
 	privateKey       *any.Any
+=======
+>>>>>>> fa5642c6a27737e318f88af75b448c07cec97e9b
 	signer           crypto.Signer
 	root             *x509.Certificate
 	dests            map[string]*destHub
 	srcs             map[string]*sourceLog
 	monitors         map[string]*monitor
 	bufferSize       int
+<<<<<<< HEAD
+=======
+	gossipListenAddr string
+	rpcEndpoint      string
+	privateKey       *any.Any
+>>>>>>> fa5642c6a27737e318f88af75b448c07cec97e9b
 }
 
 // CheckCanSubmit checks whether the gossiper can submit STHs to all destination hubs.
@@ -251,21 +267,29 @@ func (g *Gossiper) CheckCanSubmit(ctx context.Context) error {
 	return nil
 }
 
+<<<<<<< HEAD
+=======
+// Run starts a gossiper set of goroutines.  It should be terminated by cancelling
+// the passed-in context.
+>>>>>>> fa5642c6a27737e318f88af75b448c07cec97e9b
 /// -. Retrieve, Listen, Broadcast
 /// 1. create channel for STHs
 /// 2. add all source logs to gossiper waitgroup
 /// 3. Periodically retreieve STH from each source log concurrently
 /// 4. Submit any newly received STHs to a list of destinations
-// Run starts a gossiper set of goroutines.  It should be terminated by cancelling
-// the passed-in context.
 func (g *Gossiper) Run(ctx context.Context) {
 	glog.Infof("starting Gossip Listener: %+v", g)
 	sths := make(chan sthInfo, g.bufferSize)
 
 	var wg sync.WaitGroup
 	wg.Add(len(g.srcs))
+<<<<<<< HEAD
 	mouth = feeder.InitializeFeeder(ctx, g.rpcEndpoint, g.GetAllSrcLogUrls())
 	glog.Infof("InitializedFeeder: \n%+v\n", mouth)
+=======
+	portal = feeder.InitializeFeeder(ctx, g.rpcEndpoint, g.getAllSrcLogUrls())
+	glog.Infof("InitializedFeederPortal")
+>>>>>>> fa5642c6a27737e318f88af75b448c07cec97e9b
 	for _, src := range g.srcs {
 		go func(src *sourceLog) {
 			defer wg.Done()
@@ -299,16 +323,30 @@ func (g *Gossiper) Run(ctx context.Context) {
 	close(sths)
 }
 
+<<<<<<< HEAD
 func (g *Gossiper) GetAllSrcLogUrls() []string {
 	urls := make([]string, len(g.srcs))
 	i := 0
 	for _, src := range g.srcs {
 		urls[i] = src.URL
 		i += 1
+=======
+func (g *Gossiper) getAllSrcLogUrls() []string {
+	urls := make([]string, len(g.srcs)+1)
+	urls[0] = self
+	i := 1
+	for _, src := range g.srcs {
+		urls[i] = src.URL
+		i++
+>>>>>>> fa5642c6a27737e318f88af75b448c07cec97e9b
 	}
 	return urls
 }
 
+<<<<<<< HEAD
+=======
+// Broadcast transmits retrieved sthInfo to other monitors/gossipers
+>>>>>>> fa5642c6a27737e318f88af75b448c07cec97e9b
 func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 	for {
 		select {
@@ -323,23 +361,46 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 				glog.Errorf("Broadcast: Broadcasting(%s) for unknown source log", fromLog)
 			}
 
+<<<<<<< HEAD
+=======
+			/// Save STH Info to own database
+			saveSthInfo(info)
+
+			/// Send HTTP Request containing sthInfo to other monitors
+>>>>>>> fa5642c6a27737e318f88af75b448c07cec97e9b
 			for _, monitor := range g.monitors {
 				glog.Infof("Broadcaster: info (%s)->(%s)", src.Name, monitor.Name)
-				ack, err := monitor.HttpClient.PostGossipExchange(ctx, ct.GossipExchangeRequest{
+				ack, err := monitor.HTTPClient.PostGossipExchange(ctx, ct.GossipExchangeRequest{
 					LogURL:       src.URL,
 					STH:          *info.sth,
 					IsConsistent: true,
 					Proof:        []ct.MerkleTreeNode{},
 				})
-				if err != nil {
+				if err != nil || ack == nil {
 					glog.Errorf("Broadcaster: Acknowledgement for %s failed. Error: %s", monitor.Name, err)
+				} else {
+					glog.Infof("Broadcaster: Retrieved Acknowledgement (%s)->(%s)\n%v", src.Name, monitor.Name, ack)
 				}
-				glog.Infof("Broadcaster: Retrieved Acknowledgement (%s)->(%s)\n%s", src.Name, monitor.Name, ack)
 			}
 		}
 	}
 }
 
+func saveSthInfo(info sthInfo) {
+	err := feeder.Feed(context.Background(), ct.GossipExchangeRequest{
+		LogURL:       self,
+		STH:          *info.sth,
+		IsConsistent: true,
+		Proof:        []ct.MerkleTreeNode{},
+	}, portal)
+	if err != nil {
+		glog.Errorf("Could not save STH Info")
+	} else {
+		glog.Infof("Saved STH info to %v", portal.ClientToTreeMap[self].TreeId)
+	}
+}
+
+// Listen allows GossipExchange messages to be received
 func (g *Gossiper) Listen(ctx context.Context) {
 	glog.Info("[Listen] Actually Starting Listener")
 	serveMux := http.NewServeMux()
@@ -367,15 +428,31 @@ func (g *Gossiper) Listen(ctx context.Context) {
 	}
 }
 
+<<<<<<< HEAD
+=======
+// HandleGossipListener is the HTTP handler to process and respond to GossipExchangeRequests
+>>>>>>> fa5642c6a27737e318f88af75b448c07cec97e9b
 func (g *Gossiper) HandleGossipListener(rw http.ResponseWriter, req *http.Request) {
 	gossipReq, err := gossip.DecodeGossipRequest(rw, req)
 	if err != nil {
 		glog.Warningf("HandleGossipListener: Could not decode Gossip Request %v", err)
 	}
+<<<<<<< HEAD
 	glog.Infof("HandleGossipListener: \n%v\n", gossipReq)
 	feeder.Feed(context.Background(), gossipReq, mouth)
 
 	// gossipReq, err := gossip.EncodeGossipResponse(rw, req)
+=======
+	glog.Infof("HandleGossipListener: GossipRequest\n%v\n", gossipReq)
+
+	feeder.Feed(context.Background(), gossipReq, portal)
+
+	gossipResp, err := gossip.EncodeGossipResponse(rw, gossipReq)
+	if err != nil {
+		glog.Warningf("HandleGossipListener: Could not decode Gossip Reqsponse %v", err)
+	}
+	glog.Infof("HandleGossipListener: GossipResponse\n%v\n", gossipResp)
+>>>>>>> fa5642c6a27737e318f88af75b448c07cec97e9b
 }
 
 // Submitter periodically services the provided channel and submits the
@@ -492,11 +569,11 @@ func (src *sourceLog) GetNewerSTH(ctx context.Context, g *Gossiper) (*ct.SignedT
 	return sth, nil
 }
 
-// GetNewerEntries retrieves [start_index, end_index] newest entries from the source log
+// GetNewerEntries retrieves [startIndex, endIndex] newest entries from the source log
 // and returns new entries, as available
 func (src *sourceLog) GetNewerEntries(ctx context.Context, g *Gossiper, lastSTH, newSTH *ct.SignedTreeHead) ([]ct.LogEntry, error) {
 	newTreeSize := newSTH.TreeSize
-	if newTreeSize <= 0 {
+	if newTreeSize == 0 {
 		return nil, fmt.Errorf("Logger has no certificates: newTreeSize is (%v)", lastSTH)
 	}
 	if lastSTH == nil {
@@ -505,9 +582,9 @@ func (src *sourceLog) GetNewerEntries(ctx context.Context, g *Gossiper, lastSTH,
 	prevTreeSize := lastSTH.TreeSize
 	glog.V(1).Infof("Retriever(%s): Previous Tree Size (%v)", src.Name, prevTreeSize)
 
-	start_index, end_index := int64(prevTreeSize+1), int64(prevTreeSize+newTreeSize)
-	glog.V(1).Infof("Get newer entries for source log %s from (%v) to (%v)", src.Name, start_index, end_index)
-	entries, err := src.Log.GetEntries(ctx, start_index, end_index)
+	startIndex, endIndex := int64(prevTreeSize+1), int64(prevTreeSize+newTreeSize)
+	glog.V(1).Infof("Get newer entries for source log %s from (%v) to (%v)", src.Name, startIndex, endIndex)
+	entries, err := src.Log.GetEntries(ctx, startIndex, endIndex)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get new entries: %v", err)
 	}

@@ -3,7 +3,7 @@ os: linux
 dist: xenial
 language: go
 go: "1.11.x"
-go_import_path: github.com/zorawar87/certificate-transparency-go
+go_import_path: github.com/google/certificate-transparency-go
 
 env:
   global:
@@ -75,7 +75,7 @@ before_script:
 
 script:
   - set -e
-  - cd $HOME/gopath/src/github.com/zorawar87/certificate-transparency-go
+  - cd $HOME/gopath/src/github.com/google/certificate-transparency-go
   - ./scripts/presubmit.sh ${PRESUBMIT_OPTS}
   - |
       # Check re-generation didn't change anything

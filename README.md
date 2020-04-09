@@ -1,7 +1,7 @@
 # Certificate Transparency: Go Code
 
-[![Build Status](https://travis-ci.org/google/certificate-transparency-go.svg?branch=master)](https://travis-ci.org/google/certificate-transparency-go)
-[![Go Report Card](https://goreportcard.com/badge/github.com/google/certificate-transparency-go)](https://goreportcard.com/report/github.com/google/certificate-transparency-go)
+[![Build Status](https://travis-ci.org/zorawar87/certificate-transparency-go.svg?branch=master)](https://travis-ci.org/zorawar87/certificate-transparency-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/zorawar87/certificate-transparency-go)](https://goreportcard.com/report/github.com/zorawar87/certificate-transparency-go)
 [![GoDoc](https://godoc.org/github.com/google/certificate-transparency-go?status.svg)](https://godoc.org/github.com/google/certificate-transparency-go)
 
 This repository holds Go code related to

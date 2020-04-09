@@ -219,8 +219,7 @@ type GossipConfig struct {
 	// the RPC endpoint for Trillian
 	RpcEndpoint string `protobuf:"bytes,2,opt,name=rpc_endpoint,proto3" json:"rpc_endpoint,omitempty"`
 	// The source logs whose STHs will be logged.
-	SourceLog []*LogConfig     `protobuf:"bytes,1,rep,name=source_log,json=sourceLog,proto3" json:"source_log,omitempty"`
-	Monitor   []*MonitorConfig `protobuf:"bytes,1,rep,name=monitor,json=monitor,proto3" json:"monitor,omitempty"`
+	SourceLog []*LogConfig `protobuf:"bytes,1,rep,name=source_log,json=sourceLog,proto3" json:"source_log,omitempty"`
 	// The destination hubs to which the minimal-gossip certificates will
 	// be submitted.  These destination hubs need to be configured to accept
 	// submissions.
@@ -234,7 +233,13 @@ type GossipConfig struct {
 	// that chain to the root_cert.
 	PrivateKey *any.Any `protobuf:"bytes,4,opt,name=private_key,json=privateKey,proto3" json:"private_key,omitempty"`
 	// Number of buffered STHs allowed. Must not be negative.
-	BufferSize           int32    `protobuf:"varint,5,opt,name=buffer_size,json=bufferSize,proto3" json:"buffer_size,omitempty"`
+	BufferSize int32 `protobuf:"varint,5,opt,name=buffer_size,json=bufferSize,proto3" json:"buffer_size,omitempty"`
+	// The monitors with whom we will gossip
+	Monitor []*MonitorConfig `protobuf:"bytes,6,rep,name=monitor,json=monitor,proto3" json:"monitor,omitempty"`
+	// The Address:Port on which Gossip Exchanges will happen
+	GossipListenAddr string `protobuf:"bytes,7,opt,name=gossip_listen_addr,proto3" json:"gossip_listen_addr,omitempty"`
+	// the RPC endpoint for Trillian
+	RPCEndpoint          string   `protobuf:"bytes,8,opt,name=rpc_endpoint,proto3" json:"rpc_endpoint,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -274,7 +279,11 @@ func (m *GossipConfig) GetGossipListenAddr() string {
 
 func (m *GossipConfig) GetRpcEndpoint() string {
 	if m != nil {
+<<<<<<< HEAD
 		return m.RpcEndpoint
+=======
+		return m.RPCEndpoint
+>>>>>>> fa5642c6a27737e318f88af75b448c07cec97e9b
 	}
 	return ""
 }

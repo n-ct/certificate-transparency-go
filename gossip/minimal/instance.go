@@ -79,7 +79,6 @@ func NewGossiper(ctx context.Context, cfg *configpb.GossipConfig, hc *http.Clien
 	return NewBoundaryGossiper(ctx, cfg, hc, hc, mf)
 }
 
-/// TODO: register all monitors to gossiper.monintors
 // NewBoundaryGossiper creates a gossiper from the given configuration protobuf
 // and a pair of http.Client instances for source logs and destination hubs,
 // to allow (for example) gossiping across (some kinds of) network boundaries.
@@ -92,7 +91,7 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 		return nil, errors.New("no source log config found")
 	}
 	if len(cfg.Monitor) == 0 {
-		return nil, errors.New("no monitor config found")
+		glog.Warningf("No monitors found; Running in compatibility mode")
 	}
 
 	needPrivKey := false
@@ -195,6 +194,7 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 	}
 
 	return &Gossiper{
+<<<<<<< HEAD
 		/// TODO: input sanitization for gossipListenAddr, rpcEndpoint
 		gossipListenAddr: listenOn,
 		rpcEndpoint:      cfg.RpcEndpoint,
@@ -205,6 +205,18 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 		srcs:             srcs,
 		monitors:         monitors,
 		bufferSize:       int(cfg.BufferSize),
+=======
+		signer:     signer,
+		root:       root,
+		dests:      dests,
+		srcs:       srcs,
+		monitors:   monitors,
+		bufferSize: int(cfg.BufferSize),
+		/// TODO: input sanitization for gossipListenAddr, rpcEndpoint
+		gossipListenAddr: listenOn,
+		rpcEndpoint:      cfg.RPCEndpoint,
+		privateKey:       cfg.PrivateKey,
+>>>>>>> fa5642c6a27737e318f88af75b448c07cec97e9b
 	}, nil
 }
 
@@ -250,7 +262,7 @@ func monitorConfigFromProto(cfg *configpb.MonitorConfig, hc *http.Client) (*moni
 	return &monitorConfig{
 		Name:          cfg.Name,
 		URL:           cfg.Url,
-		HttpClient:    client,
+		HTTPClient:    client,
 		lastBroadcast: make(map[string]time.Time),
 	}, nil
 }
