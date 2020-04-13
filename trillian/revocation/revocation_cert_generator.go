@@ -7,13 +7,9 @@ import (
   "github.com/golang/glog"
   "github.com/google/certificate-transparency-go/trillian/integration"
   "github.com/google/certificate-transparency-go/trillian/ctfe"
+  "github.com/google/certificate-transparency-go/client"
 )
 
-var (
-  logConfig = flag.String("log_config", "../integration/demo-script.cfg")
-  httpServers = flag.String("ct_http_servers", "localhost:6965")
-  testDir = flag.String("testdata_dir", "../testdata")
-)
 
 // syntheticly generates certs using testdir and adds to log specified in config
 // Uses multiple functions used in ct_hammer
@@ -25,7 +21,7 @@ func GenerateAndAdd(numCerts int) error {
     glog.Exitf("Failed to read log config: %v", err)
   }
 
-  ctx, cancel = context.WithCancel(context.Background())
+  ctx, cancel := context.WithCancel(context.Background())
   defer cancel()
 
   generatorFactory,err := integration.SyntheticGeneratorFactory(*testDir, "")
@@ -53,10 +49,12 @@ func GenerateAndAdd(numCerts int) error {
     glog.Infof("i: %d, generated new cert: %v",i,chain)
 
     sct, err := pool.Next().AddChain(ctx,chain)
+    glog.Infof("Logged with sct = %v",sct)
     if err != nil {
       if err, ok := err.(client.RspError); ok {
         glog.Errorf("add-chain: error %v HTTP status %d body %s", err.Error(), err.StatusCode, err.Body)
       }
+    }
   }
 
   return nil
