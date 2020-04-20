@@ -6,7 +6,6 @@ import (
 
   "github.com/golang/glog"
   "github.com/google/certificate-transparency-go/trillian/integration"
-  "github.com/google/certificate-transparency-go/trillian/ctfe"
   "github.com/google/certificate-transparency-go/client"
 )
 
