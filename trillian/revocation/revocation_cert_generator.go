@@ -14,7 +14,7 @@ import (
 // syntheticly generates certs using testdir and adds to log specified in config
 // Uses multiple functions used in ct_hammer
 // Only intended for a single log to be specified in logConfig
-func GenerateAndAdd(numCerts int) error {
+func GenerateAndAdd(numCerts int,logConfig string,httpServers string, testDir string) error {
 
   cfg, err := ctfe.LogConfigFromFile(*logConfig)
   if err != nil {

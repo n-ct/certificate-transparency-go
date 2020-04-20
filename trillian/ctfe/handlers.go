@@ -35,6 +35,7 @@ import (
 	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/util"
+  "github.com/google/certificate-transparency-go/trillian/revocation"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 	"github.com/google/trillian/monitoring"
@@ -102,6 +103,8 @@ const (
 	GetEntriesName        = EntrypointName("GetEntries")
 	GetRootsName          = EntrypointName("GetRoots")
 	GetEntryAndProofName  = EntrypointName("GetEntryAndProof")
+
+  AddRevocationName     = EntrypointName("AddRevocationName")
 )
 
 var (
@@ -342,6 +345,7 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 		prefix + ct.GetEntriesPath:        AppHandler{Info: li, Handler: getEntries, Name: GetEntriesName, Method: http.MethodGet},
 		prefix + ct.GetRootsPath:          AppHandler{Info: li, Handler: getRoots, Name: GetRootsName, Method: http.MethodGet},
 		prefix + ct.GetEntryAndProofPath:  AppHandler{Info: li, Handler: getEntryAndProof, Name: GetEntryAndProofName, Method: http.MethodGet},
+                prefix + "/ct/v1/add-revocation":  AppHandler{Info: li, Handler: addRevocation, Name: AddRevocationName, Method: http.MethodGet}
 	}
 	// Remove endpoints not provided by mirrors.
 	if li.instanceOpts.Validated.Config.IsMirror {
@@ -417,6 +421,77 @@ func (li *logInfo) chargeUser(r *http.Request) *trillian.ChargeTo {
 	}
 	return nil
 }
+
+func addRevocation(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int,error) {
+  var method EntrypointName
+
+  method = AddRevocationName
+
+  logConfig := "../integration/demo-script.cfg"
+  httpServers := "localhost:6965"
+  testDir := "../testdata"
+
+  // Add one randomly generated valid cert to trillian backend
+  revocation.GenerateAndAdd(1,logConfig,httpServers,testDir)
+
+  // Add 0 to revocation tree
+  leaf := trillian.LogLeaf{
+    LeafValue: []byte("0")
+  }
+  req := trillian.QueueLeavesReques{
+    LogId: li.logID,
+    Leaves: []*trillian.LogLeaf{&leaf}
+  }
+  glog.V(2).Infof("%s: %s => grpc.QueueLeaves", li.LogPrefix, method)
+  rsp, err := li.rpcClient.QueueLeaves(ctx, &req)
+  glog.V(2).Infof("%s: %s <= grpc.QueueLeaves err=%v", li.LogPrefix, method, err)
+
+  if err != nil {
+    return li.toHTTPStatus(err), fmt.Errorf("backend QueueLeaves request failed: %s", err)
+  }
+  if rsp == nil {
+    return http.StatusInternalServerError, errors.New("missing QueueLeaves response")
+  }
+  if len(rsp.QueuedLeaves) != 1 {
+    return http.StatusInternalServerError, fmt.Errorf("unexpected QueueLeaves response leaf count: %d", len(rsp.QueuedLeaves))
+  }
+  queuedLeaf := rsp.QueuedLeaves[0]
+
+  // Always use the returned leaf as the basis for an SCT.
+  var loggedLeaf ct.MerkleTreeLeaf
+  if rest, err := tls.Unmarshal(queuedLeaf.Leaf.LeafValue, &loggedLeaf); err != nil {
+  	return http.StatusInternalServerError, fmt.Errorf("failed to reconstruct MerkleTreeLeaf: %s", err)
+  } else if len(rest) > 0 {
+  	return http.StatusInternalServerError, fmt.Errorf("extra data (%d bytes) on reconstructing MerkleTreeLeaf", len(rest))
+  }
+
+  // As the Log server has definitely got the Merkle tree leaf, we can
+  // generate an SCT and respond with it.
+  sct, err := buildV1SCT(li.signer, &loggedLeaf)
+  if err != nil {
+  	return http.StatusInternalServerError, fmt.Errorf("failed to generate SCT: %s", err)
+  }
+  sctBytes, err := tls.Marshal(*sct)
+  if err != nil {
+  	return http.StatusInternalServerError, fmt.Errorf("failed to marshall SCT: %s", err)
+  }
+  // We could possibly fail to issue the SCT after this but it's v. unlikely.
+  li.RequestLog.IssueSCT(ctx, sctBytes)
+  err = marshalAndWriteAddChainResponse(sct, li.signer, w)
+  if err != nil {
+  	// reason is logged and http status is already set
+  	return http.StatusInternalServerError, fmt.Errorf("failed to write response: %s", err)
+  }
+  glog.V(3).Infof("%s: %s <= SCT", li.LogPrefix, method)
+  if sct.Timestamp == timeMillis {
+  	lastSCTTimestamp.Set(float64(sct.Timestamp), strconv.FormatInt(li.logID, 10))
+  }
+
+  return http.StatusOK, nil
+}
+
+
+  
 
 // addChainInternal is called by add-chain and add-pre-chain as the logic involved in
 // processing these requests is almost identical
