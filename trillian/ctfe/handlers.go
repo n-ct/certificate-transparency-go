@@ -78,6 +78,8 @@ const (
 	getEntryAndProofParamLeafIndex = "leaf_index"
 	// The name of the get-entry-and-proof tree size parameter
 	getEntryAndProofParamTreeSize = "tree_size"
+        // The name of the get-revocation index parameter
+        getRevocationParamLeafIndex = "leaf_index"
 )
 
 var (
@@ -96,12 +98,14 @@ type EntrypointName string
 const (
 	AddChainName          = EntrypointName("AddChain")
 	AddPreChainName       = EntrypointName("AddPreChain")
+        AddRevocationName     = EntrypointName("AddRevocation")
 	GetSTHName            = EntrypointName("GetSTH")
 	GetSTHConsistencyName = EntrypointName("GetSTHConsistency")
 	GetProofByHashName    = EntrypointName("GetProofByHash")
 	GetEntriesName        = EntrypointName("GetEntries")
 	GetRootsName          = EntrypointName("GetRoots")
 	GetEntryAndProofName  = EntrypointName("GetEntryAndProof")
+        GetRevocationName     = EntrypointName("GetRevocation")
 )
 
 var (
@@ -263,6 +267,8 @@ type logInfo struct {
 	instanceOpts InstanceOptions
 	// logID is the tree ID that identifies this log in node storage
 	logID int64
+        // revocationTreeID is passed from instances.go and describes a logs corresponding revocation tree in node storage
+        revocationTreeID int64
 	// validationOpts contains the certificate chain validation parameters
 	validationOpts CertValidationOpts
 	// rpcClient is the client used to communicate with the Trillian backend
@@ -286,6 +292,7 @@ func newLogInfo(
 	logID, prefix := cfg.LogId, cfg.Prefix
 	li := &logInfo{
 		logID:          logID,
+                revocationTreeID: instanceOpts.RevocationTreeID,
 		LogPrefix:      fmt.Sprintf("%s{%d}", prefix, logID),
 		rpcClient:      instanceOpts.Client,
 		signer:         signer,
@@ -336,12 +343,14 @@ func (li *logInfo) Handlers(prefix string) PathHandlers {
 	ph := PathHandlers{
 		prefix + ct.AddChainPath:          AppHandler{Info: li, Handler: addChain, Name: AddChainName, Method: http.MethodPost},
 		prefix + ct.AddPreChainPath:       AppHandler{Info: li, Handler: addPreChain, Name: AddPreChainName, Method: http.MethodPost},
+                prefix + ct.AddRevocationPath:     AppHandler{Info: li, Handler: addRevocation, Name: AddRevocationName, Method: http.MethodPost},
 		prefix + ct.GetSTHPath:            AppHandler{Info: li, Handler: getSTH, Name: GetSTHName, Method: http.MethodGet},
 		prefix + ct.GetSTHConsistencyPath: AppHandler{Info: li, Handler: getSTHConsistency, Name: GetSTHConsistencyName, Method: http.MethodGet},
 		prefix + ct.GetProofByHashPath:    AppHandler{Info: li, Handler: getProofByHash, Name: GetProofByHashName, Method: http.MethodGet},
 		prefix + ct.GetEntriesPath:        AppHandler{Info: li, Handler: getEntries, Name: GetEntriesName, Method: http.MethodGet},
 		prefix + ct.GetRootsPath:          AppHandler{Info: li, Handler: getRoots, Name: GetRootsName, Method: http.MethodGet},
 		prefix + ct.GetEntryAndProofPath:  AppHandler{Info: li, Handler: getEntryAndProof, Name: GetEntryAndProofName, Method: http.MethodGet},
+                prefix + ct.GetRevocationPath:     AppHandler{Info: li, Handler: getRevocation, Name: GetRevocationName, Method: http.MethodGet},
 	}
 	// Remove endpoints not provided by mirrors.
 	if li.instanceOpts.Validated.Config.IsMirror {
@@ -461,6 +470,28 @@ func addChainInternal(ctx context.Context, li *logInfo, w http.ResponseWriter, r
 		return http.StatusInternalServerError, fmt.Errorf("failed to build LogLeaf: %s", err)
 	}
 
+        rev_leaf := trillian.LogLeaf{LeafValue: []byte{0}}
+
+        // Send "non-revoked" value to Revocation Tree
+        rev_req := trillian.QueueLeavesRequest{
+                LogId: li.revocationTreeID,
+                Leaves: []*trillian.LogLeaf{&rev_leaf},
+        }
+
+	glog.V(2).Infof("%s: %s => grpc.QueueLeaves: Revocation Default Value", li.LogPrefix, method)
+	rev_rsp, err := li.rpcClient.QueueLeaves(ctx, &rev_req)
+	glog.V(2).Infof("%s: %s <= grpc.QueueLeaves err=%v: Revocation Default Value", li.LogPrefix, method, err)
+	if err != nil {
+		return li.toHTTPStatus(err), fmt.Errorf("backend Revocation QueueLeaves request failed: %s", err)
+	}
+	if rev_rsp == nil {
+		return http.StatusInternalServerError, errors.New("missing Revocation QueueLeaves response")
+	}
+	if len(rev_rsp.QueuedLeaves) != 1 {
+		return http.StatusInternalServerError, fmt.Errorf("unexpected Revocation QueueLeaves response leaf count: %d", len(rev_rsp.QueuedLeaves))
+	}
+        // Jeremy made the decision to not include another SCT for revocation default values
+
 	// Send the Merkle tree leaf on to the Log server.
 	req := trillian.QueueLeavesRequest{
 		LogId:    li.logID,
@@ -528,6 +559,44 @@ func addChain(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.R
 func addPreChain(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	return addChainInternal(ctx, li, w, r, true)
 }
+
+
+// Postponed for future, flipping bits is not allowed in merkle log server
+// Might have to set up as trillian map server
+func addRevocation(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int,error) {
+  return http.StatusOK, nil
+  }
+
+func getRevocation(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int,error) {
+  index, err := strconv.ParseInt(r.FormValue(getRevocationParamLeafIndex),10,64)
+  if err != nil {
+    return http.StatusBadRequest, err
+  }
+  req := trillian.GetLeavesByIndexRequest{
+    LogId: li.revocationTreeID,
+    LeafIndex: []int64{index},
+  }
+  rsp, err := li.rpcClient.GetLeavesByIndex(ctx,&req)
+  if err != nil {
+    return li.toHTTPStatus(err), fmt.Errorf("backend GetRevocation request failed: %s",err)
+  }
+
+  var leaf *trillian.LogLeaf
+  leaf = rsp.Leaves[0] //only support grabbing one leaf
+
+  jsonRsp := ct.LeafEntry{LeafInput: leaf.LeafValue}
+  jsonData, err := json.Marshal(&jsonRsp)
+  if err != nil {
+    return http.StatusInternalServerError, fmt.Errorf("failed to marshal get-revocation response: %s",err)
+  }
+  _, err = w.Write(jsonData)
+  if err != nil {
+    return http.StatusInternalServerError, fmt.Errorf("failed to write get-revocation response: %s",err)
+  }
+
+  return http.StatusOK, nil
+}
+
 
 func getSTH(ctx context.Context, li *logInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	qctx := ctx

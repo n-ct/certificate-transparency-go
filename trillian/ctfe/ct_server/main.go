@@ -67,6 +67,7 @@ var (
 	quotaRemote        = flag.Bool("quota_remote", true, "Enable requesting of quota for IP address sending incoming requests")
 	quotaIntermediate  = flag.Bool("quota_intermediate", true, "Enable requesting of quota for intermediate certificates in sumbmitted chains")
 	handlerPrefix      = flag.String("handler_prefix", "", "If set e.g. to '/logs' will prefix all handlers that don't define a custom prefix")
+        revocationTreeID       = flag.Int64("revocation_tree_id",0,"Must be provided for certificate revocation functionality")
 )
 
 const unknownRemoteUser = "UNKNOWN_REMOTE"
@@ -176,7 +177,7 @@ func main() {
 	// Register handlers for all the configured logs using the correct RPC
 	// client.
 	for _, c := range cfg.LogConfigs.Config {
-		inst, err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c, corsMux, *handlerPrefix, *maskInternalErrors)
+		inst, err := setupAndRegister(ctx, clientMap[c.LogBackendName], *rpcDeadline, c, corsMux, *handlerPrefix, *maskInternalErrors, *revocationTreeID)
 		if err != nil {
 			glog.Exitf("Failed to set up log instance for %+v: %v", cfg, err)
 		}
@@ -262,7 +263,7 @@ func awaitSignal(doneFn func()) {
 	doneFn()
 }
 
-func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, mux *http.ServeMux, globalHandlerPrefix string, maskInternalErrors bool) (*ctfe.Instance, error) {
+func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, deadline time.Duration, cfg *configpb.LogConfig, mux *http.ServeMux, globalHandlerPrefix string, maskInternalErrors bool, revocationTreeID int64) (*ctfe.Instance, error) {
 	vCfg, err := ctfe.ValidateLogConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -270,6 +271,7 @@ func setupAndRegister(ctx context.Context, client trillian.TrillianLogClient, de
 
 	opts := ctfe.InstanceOptions{
 		Validated:          vCfg,
+                RevocationTreeID:   revocationTreeID,
 		Client:             client,
 		Deadline:           deadline,
 		MetricFactory:      prometheus.MetricFactory{},

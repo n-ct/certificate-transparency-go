@@ -39,6 +39,8 @@ type InstanceOptions struct {
 	// Validated holds the original configuration options for the log, and some
 	// of its fields parsed as a result of validating it.
 	Validated *ValidatedLogConfig
+        // Holds the revocation tree id, if provided to ct_server
+        RevocationTreeID int64
 	// Client is a corresponding Trillian log client.
 	Client trillian.TrillianLogClient
 	// Deadline is a timeout for Trillian RPC requests.

@@ -420,12 +420,14 @@ type APIEndpoint string
 const (
 	AddChainStr          APIEndpoint = "add-chain"
 	AddPreChainStr       APIEndpoint = "add-pre-chain"
+        AddRevocationStr     APIEndpoint = "revoke-certificate"
 	GetSTHStr            APIEndpoint = "get-sth"
 	GetEntriesStr        APIEndpoint = "get-entries"
 	GetProofByHashStr    APIEndpoint = "get-proof-by-hash"
 	GetSTHConsistencyStr APIEndpoint = "get-sth-consistency"
 	GetRootsStr          APIEndpoint = "get-roots"
 	GetEntryAndProofStr  APIEndpoint = "get-entry-and-proof"
+        GetRevocationStr     APIEndpoint = "get-revocation"
 )
 
 // URI paths for Log requests; see section 4.
@@ -434,6 +436,7 @@ const (
 const (
 	AddChainPath          = "/ct/v1/add-chain"
 	AddPreChainPath       = "/ct/v1/add-pre-chain"
+        AddRevocationPath     = "/ct/v1/revoke-certificate"
 	GetSTHPath            = "/ct/v1/get-sth"
 	GetEntriesPath        = "/ct/v1/get-entries"
 	GetProofByHashPath    = "/ct/v1/get-proof-by-hash"
@@ -441,6 +444,7 @@ const (
 	GetRootsPath          = "/ct/v1/get-roots"
 	GetEntryAndProofPath  = "/ct/v1/get-entry-and-proof"
 	GossipExchangePath    = "/ct/v1/gossip-exchange"
+        GetRevocationPath     = "/ct/v1/get-revocation"
 
 	AddJSONPath = "/ct/v1/add-json" // Experimental addition
 )
@@ -560,6 +564,7 @@ type LeafEntry struct {
 type GetEntriesResponse struct {
 	Entries []LeafEntry `json:"entries"` // the list of returned entries
 }
+
 
 // GetRootsResponse represents the JSON response to the get-roots GET method from section 4.7.
 type GetRootsResponse struct {
