@@ -265,8 +265,9 @@ func (g *Gossiper) Run(ctx context.Context) {
 
 	var wg sync.WaitGroup
 	wg.Add(len(g.srcs))
+	glog.Infof("Initializing Feeder Portal")
 	portal = feeder.InitializeFeeder(ctx, g.rpcEndpoint, g.getAllSrcLogUrls())
-	glog.Infof("InitializedFeederPortal")
+	glog.Infof("Initialized Feeder Portal")
 	for _, src := range g.srcs {
 		go func(src *sourceLog) {
 			defer wg.Done()
@@ -373,7 +374,7 @@ func (g *Gossiper) Listen(ctx context.Context) {
 	glog.Info("Listen: Created Server")
 	go func() {
 		<-ctx.Done()
-		glog.Info("Listen: termination requested")
+		glog.Infof("Listen: termination requested")
 
 		// We received an interrupt signal, shut down.
 		if err := server.Shutdown(ctx); err != nil {
@@ -482,11 +483,8 @@ func (src *sourceLog) Retriever(ctx context.Context, g *Gossiper, s chan<- sthIn
 			if err != nil {
 				glog.Errorf("Retriever(%s): failed to NewerEntries STH: %v", src.Name, err)
 			}
-			if len(entries) > 0 {
-				glog.V(1).Infof("Retriever(%s): newest entry (%v)", src.Name, entries[0])
-			} else {
-				glog.V(1).Infof("Retriever(%s): received (%v) new entries", src.Name, len(entries))
-			}
+
+			// TODO: (christina) Process New Entries
 
 			glog.V(1).Infof("Retriever(%s): pass on STH", src.Name)
 			lastRecordedSTHTimestamp.Set(float64(sth.Timestamp), src.Name)
@@ -523,22 +521,26 @@ func (src *sourceLog) GetNewerSTH(ctx context.Context, g *Gossiper) (*ct.SignedT
 // GetNewerEntries retrieves [startIndex, endIndex] newest entries from the source log
 // and returns new entries, as available
 func (src *sourceLog) GetNewerEntries(ctx context.Context, g *Gossiper, lastSTH, newSTH *ct.SignedTreeHead) ([]ct.LogEntry, error) {
-	newTreeSize := newSTH.TreeSize
+	prevTreeSize, newTreeSize := uint64(0), newSTH.TreeSize
 	if newTreeSize == 0 {
-		return nil, fmt.Errorf("Logger has no certificates: newTreeSize is (%v)", lastSTH)
+		return nil, fmt.Errorf("GetNewerEntries(%v): Logger has no certificates: tree size is (%v)", src.Name, newTreeSize)
 	}
-	if lastSTH == nil {
-		return nil, fmt.Errorf("Cannot get new entries: lastSTH is (%v)", lastSTH)
+	if lastSTH != nil {
+		prevTreeSize = lastSTH.TreeSize
 	}
-	prevTreeSize := lastSTH.TreeSize
-	glog.V(1).Infof("Retriever(%s): Previous Tree Size (%v)", src.Name, prevTreeSize)
+	glog.V(1).Infof("GetNewerEntries(%s): Previous Tree Size (%v)", src.Name, prevTreeSize)
 
-	startIndex, endIndex := int64(prevTreeSize+1), int64(prevTreeSize+newTreeSize)
-	glog.V(1).Infof("Get newer entries for source log %s from (%v) to (%v)", src.Name, startIndex, endIndex)
+	startIndex, endIndex := int64(prevTreeSize+1), int64(newTreeSize)
+	glog.Infof("GetNewerEntries(%s) from index (%v) to (%v). Expected Count=%v", src.Name, startIndex, endIndex, endIndex-startIndex+1)
 	entries, err := src.Log.GetEntries(ctx, startIndex, endIndex)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get new entries: %v", err)
+		return nil, fmt.Errorf("GetNewerEntries(%s): failed to get new entries: %v", src.Name, err)
 	}
-
+	glog.Infof("GetNewerEntries(%s): Got %v entries", src.Name, len(entries))
+	if glog.V(2) {
+		for _, e := range entries {
+			glog.Infof("(%v): LogEntry %v %v", src.Name, e.Index, e.Leaf)
+		}
+	}
 	return entries, nil
 }
