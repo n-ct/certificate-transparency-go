@@ -61,7 +61,7 @@ func DialTrillian(ctx context.Context, rpcEndpoint string) (*grpc.ClientConn, er
 
 // InitializeFeeder creates a tree for every source log
 func InitializeFeeder(ctx context.Context, rpcEndpoint string, logUrls []string) *Portal {
-	if len(rpcEndpoint) == 0{
+	if len(rpcEndpoint) == 0 {
 		glog.Exitf("no RPC endpoint specified")
 	}
 	conn, err := DialTrillian(ctx, rpcEndpoint)

@@ -38,10 +38,10 @@ import (
 )
 
 const (
-	defaultRateHz       = 1.0
-	defaultMinInterval  = 1 * time.Second
-	overrideNeedPrivKey = true
-	defaultGossipListenAddr	= ":6966"
+	defaultRateHz           = 1.0
+	defaultMinInterval      = 1 * time.Second
+	overrideNeedPrivKey     = true
+	defaultGossipListenAddr = ":6966"
 )
 
 // NewGossiperFromFile creates a gossiper from the given filename, which should
