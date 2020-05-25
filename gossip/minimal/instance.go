@@ -41,6 +41,7 @@ const (
 	defaultRateHz       = 1.0
 	defaultMinInterval  = 1 * time.Second
 	overrideNeedPrivKey = true
+	defaultGossipListenAddr	= ":6966"
 )
 
 // NewGossiperFromFile creates a gossiper from the given filename, which should
@@ -92,6 +93,11 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 	}
 	if len(cfg.Monitor) == 0 {
 		glog.Warningf("No monitors found; Running in compatibility mode")
+	}
+	if len(cfg.RPCEndpoint) == 0 {
+		glog.Warningf("NOT CONFIGURED --- RPC Endpoint for gossip storage; Gossip will not work without a trillian backend (port:8090)")
+	} else {
+		glog.Infof("configured RPC Endpoint for gossip storage at %+v", cfg.RPCEndpoint)
 	}
 
 	needPrivKey := false
@@ -188,10 +194,11 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 		}
 	}
 
-	listenOn := ":6966"
-	if cfg.GossipListenAddr != "" {
+	var listenOn string
+	if listenOn = defaultGossipListenAddr; len(cfg.GossipListenAddr) != 0 {
 		listenOn = cfg.GossipListenAddr
 	}
+	glog.Infof("configured gossip listen addr to %+v", listenOn)
 
 	return &Gossiper{
 		signer:     signer,

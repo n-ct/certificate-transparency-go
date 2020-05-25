@@ -42,7 +42,13 @@ type Portal struct {
 }
 
 // DialTrillian connects to a trillian server and keeps the connection open
-func DialTrillian(rpcEndpoint string) (*grpc.ClientConn, error) {
+func DialTrillian(ctx context.Context, rpcEndpoint string) (*grpc.ClientConn, error) {
+	go func() {
+		<-ctx.Done()
+		glog.Exitf("DialTrillian: Abandoning gRPC call to Trillian backend")
+	}()
+
+	glog.Infof("Dialing Trillian RPC server: %v", rpcEndpoint)
 	dialOpts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBlock()}
 	conn, err := grpc.Dial(rpcEndpoint, dialOpts...)
 	if err != nil {
@@ -55,9 +61,12 @@ func DialTrillian(rpcEndpoint string) (*grpc.ClientConn, error) {
 
 // InitializeFeeder creates a tree for every source log
 func InitializeFeeder(ctx context.Context, rpcEndpoint string, logUrls []string) *Portal {
-	conn, err := DialTrillian(rpcEndpoint)
+	if len(rpcEndpoint) == 0{
+		glog.Exitf("no RPC endpoint specified")
+	}
+	conn, err := DialTrillian(ctx, rpcEndpoint)
 	if err != nil {
-		glog.Exitf("Coult not Dial Trillian: %v", err)
+		glog.Exitf("Could not initilize feeder because trillian is unreachable: %v", err)
 	}
 	defer conn.Close()
 
@@ -92,7 +101,7 @@ func createAndInitTrees(ctx context.Context, conn *grpc.ClientConn, logUrls []st
 
 // Feed data from a gossip reqest to the trillian server referenced in the Portal
 func Feed(ctx context.Context, gossipReq ct.GossipExchangeRequest, portal *Portal) error {
-	conn, err := DialTrillian(portal.RPCEndpoint)
+	conn, err := DialTrillian(ctx, portal.RPCEndpoint)
 	if err != nil {
 		return err
 	}
