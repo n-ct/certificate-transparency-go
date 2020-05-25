@@ -38,6 +38,8 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/feeder"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian/monitoring"
+	"github.com/google/trillian/merkle"
+	"github.com/google/trillian/merkle/rfc6962"
 
 	any "github.com/golang/protobuf/ptypes/any"
 	ct "github.com/google/certificate-transparency-go"
@@ -265,8 +267,8 @@ func (g *Gossiper) Run(ctx context.Context) {
 
 	var wg sync.WaitGroup
 	wg.Add(len(g.srcs))
-	portal = feeder.InitializeFeeder(ctx, g.rpcEndpoint, g.getAllSrcLogUrls())
-	glog.Infof("InitializedFeederPortal")
+//	portal = feeder.InitializeFeeder(ctx, g.rpcEndpoint, g.getAllSrcLogUrls())
+//	glog.Infof("InitializedFeederPortal")
 	for _, src := range g.srcs {
 		go func(src *sourceLog) {
 			defer wg.Done()
@@ -275,18 +277,18 @@ func (g *Gossiper) Run(ctx context.Context) {
 			glog.Infof("finished Retriever(%s)", src.Name)
 		}(src)
 	}
-	go func() {
-		glog.Info("starting Gossip Listener")
-		g.Listen(ctx)
-		glog.Info("finished Gossip Listener")
-	}()
-	///////////////////////////////////
-	// glog.Info("starting Submitter")
-	// g.Submitter(ctx, sths)
-	// glog.Info("finished Submitter")
-	glog.Info("starting Gossip Broadcaster")
-	g.Broadcast(ctx, sths)
-	glog.Info("finished Gossip Broadcaster")
+//	go func() {
+//		glog.Info("starting Gossip Listener")
+//		g.Listen(ctx)
+//		glog.Info("finished Gossip Listener")
+//	}()
+//	///////////////////////////////////
+//	// glog.Info("starting Submitter")
+//	// g.Submitter(ctx, sths)
+//	// glog.Info("finished Submitter")
+//	glog.Info("starting Gossip Broadcaster")
+//	g.Broadcast(ctx, sths)
+//	glog.Info("finished Gossip Broadcaster")
 
 	// Drain the sthInfo channel during shutdown so the Retrievers don't block on it.
 	go func() {
@@ -483,8 +485,7 @@ func (src *sourceLog) Retriever(ctx context.Context, g *Gossiper, s chan<- sthIn
 				glog.Errorf("Retriever(%s): failed to NewerEntries STH: %v", src.Name, err)
 			}
 			if len(entries) > 0 {
-				glog.V(1).Infof("Retriever(%s): newest entry (%v)", src.Name, entries[0])
-			} else {
+//				glog.V(1).Infof("Have snapshot indices %v and %v from inside retriever",startIndex,endIndex)
 				glog.V(1).Infof("Retriever(%s): received (%v) new entries", src.Name, len(entries))
 			}
 
@@ -521,7 +522,7 @@ func (src *sourceLog) GetNewerSTH(ctx context.Context, g *Gossiper) (*ct.SignedT
 }
 
 // GetNewerEntries retrieves [startIndex, endIndex] newest entries from the source log
-// and returns new entries, as available
+// and returns new entries and corresponding consistency proof, as available
 func (src *sourceLog) GetNewerEntries(ctx context.Context, g *Gossiper, lastSTH, newSTH *ct.SignedTreeHead) ([]ct.LogEntry, error) {
 	newTreeSize := newSTH.TreeSize
 	if newTreeSize == 0 {
@@ -533,12 +534,25 @@ func (src *sourceLog) GetNewerEntries(ctx context.Context, g *Gossiper, lastSTH,
 	prevTreeSize := lastSTH.TreeSize
 	glog.V(1).Infof("Retriever(%s): Previous Tree Size (%v)", src.Name, prevTreeSize)
 
-	startIndex, endIndex := int64(prevTreeSize+1), int64(prevTreeSize+newTreeSize)
+	startIndex, endIndex := int64(prevTreeSize+1), int64(newTreeSize)
 	glog.V(1).Infof("Get newer entries for source log %s from (%v) to (%v)", src.Name, startIndex, endIndex)
 	entries, err := src.Log.GetEntries(ctx, startIndex, endIndex)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get new entries: %v", err)
 	}
-
+	proof, err := src.Log.GetSTHConsistency(ctx,uint64(startIndex),uint64(endIndex))
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get STH consistency: %v", err)
+	}
+	glog.V(1).Infof("Retriever(%s): Length of proof: %v",src.Name,len(proof))
+	glog.V(1).Infof("Retriever(%s): Verifying proof")
+	v:=merkle.NewLogVerifier(rfc6962.DefaultHasher)
+	var root1 []byte = lastSTH.SHA256RootHash[:]
+	var root2 []byte = newSTH.SHA256RootHash[:]
+	err = v.VerifyConsistencyProof(startIndex,endIndex,root1,root2,proof)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to verify consistency: %v",err)
+	}
+	glog.V(1).Infof("Retriever(%s): Log is consistent from last checked sth", src.Name)
 	return entries, nil
 }
