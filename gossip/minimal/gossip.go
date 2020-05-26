@@ -281,13 +281,13 @@ func (g *Gossiper) Run(ctx context.Context) {
 		g.Listen(ctx)
 		glog.Info("finished Gossip Listener")
 	}()
+	glog.Info("starting Gossip Broadcaster")
+	g.Broadcast(ctx, sths)
+	glog.Info("finished Gossip Broadcaster")
 	///////////////////////////////////
 	// glog.Info("starting Submitter")
 	// g.Submitter(ctx, sths)
 	// glog.Info("finished Submitter")
-	glog.Info("starting Gossip Broadcaster")
-	g.Broadcast(ctx, sths)
-	glog.Info("finished Gossip Broadcaster")
 
 	// Drain the sthInfo channel during shutdown so the Retrievers don't block on it.
 	go func() {
@@ -531,7 +531,7 @@ func (src *sourceLog) GetNewerEntries(ctx context.Context, g *Gossiper, lastSTH,
 	glog.V(1).Infof("GetNewerEntries(%s): Previous Tree Size (%v)", src.Name, prevTreeSize)
 
 	startIndex, endIndex := int64(prevTreeSize+1), int64(newTreeSize)
-	glog.Infof("GetNewerEntries(%s) from index (%v) to (%v). Expected Count=%v", src.Name, startIndex, endIndex, endIndex-startIndex+1)
+	glog.Infof("GetNewerEntries(%s) from index (%v) to (%v). Expect %v entries.", src.Name, startIndex, endIndex, endIndex-startIndex+1)
 	entries, err := src.Log.GetEntries(ctx, startIndex, endIndex)
 	if err != nil {
 		return nil, fmt.Errorf("GetNewerEntries(%s): failed to get new entries: %v", src.Name, err)
