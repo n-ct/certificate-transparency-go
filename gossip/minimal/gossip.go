@@ -68,8 +68,6 @@ var (
 	writeErrorsCounter monitoring.Counter // hubname => value
 )
 
-const GOSSIP_NOT_ACKNOWLEDGED = ct.GossipExchangeResponse{Acknowledged: false}
-
 // setupMetrics initializes all the exported metrics.
 func setupMetrics(mf monitoring.MetricFactory) {
 	if mf == nil {
@@ -412,7 +410,7 @@ func (g *Gossiper) HandleGossipListener(rw http.ResponseWriter, req *http.Reques
 		}
 		glog.Infof("HandleGossipListener: GossipResponse\n%v\n", gossipResp)
 	} else {
-		gossipResp, _ := gossip.EncodeGossipResponse(rw, GOSSIP_NOT_ACKNOWLEDGED)
+		gossipResp, _ := gossip.EncodeGossipResponse(rw, ct.GossipExchangeResponse{Acknowledged: false})
 		glog.Infof("HandleGossipListener: Ignoring Gossip Information because it is not relevant %v\n", gossipResp)
 	}
 }
