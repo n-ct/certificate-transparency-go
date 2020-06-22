@@ -205,7 +205,6 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 		}
 	}
 
-
 	return &Gossiper{
 		signer:     signer,
 		root:       root,
