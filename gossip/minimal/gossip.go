@@ -68,7 +68,7 @@ var (
 	writeErrorsCounter monitoring.Counter // hubname => value
 )
 
-const self = "SELF"
+const GOSSIP_NOT_ACKNOWLEDGED = ct.GossipExchangeResponse{Acknowledged: false}
 
 // setupMetrics initializes all the exported metrics.
 func setupMetrics(mf monitoring.MetricFactory) {
@@ -301,12 +301,9 @@ func (g *Gossiper) Run(ctx context.Context) {
 }
 
 func (g *Gossiper) getAllSrcLogUrls() []string {
-	urls := make([]string, len(g.srcs)+1)
-	urls[0] = self
-	i := 1
-	for _, src := range g.srcs {
+	urls := make([]string, len(g.srcs))
+	for i, src := range g.srcs {
 		urls[i] = src.URL
-		i++
 	}
 	return urls
 }
@@ -361,7 +358,7 @@ func saveSthInfo(info sthInfo, logURL string, gossipOrigin string) {
 	if err != nil {
 		glog.Errorf("Could not save STH Info")
 	} else {
-		glog.Infof("Saved STH info to %v", portal.ClientToTreeMap[self].TreeId)
+		glog.Infof("Saved STH info to %v", portal.ClientToTreeMap[logURL].TreeId)
 	}
 }
 
@@ -415,9 +412,7 @@ func (g *Gossiper) HandleGossipListener(rw http.ResponseWriter, req *http.Reques
 		}
 		glog.Infof("HandleGossipListener: GossipResponse\n%v\n", gossipResp)
 	} else {
-		gossipResp, _ := gossip.EncodeGossipResponse(rw, ct.GossipExchangeResponse{
-			Acknowledged: false,
-		})
+		gossipResp, _ := gossip.EncodeGossipResponse(rw, GOSSIP_NOT_ACKNOWLEDGED)
 		glog.Infof("HandleGossipListener: Ignoring Gossip Information because it is not relevant %v\n", gossipResp)
 	}
 }
@@ -426,8 +421,8 @@ func (g *Gossiper) gossipContainsInfoAboutMonitoredLog(req ct.GossipExchangeRequ
 	if len(req.LogURL) == 0 {
 		return false
 	}
-	for _, s := range g.srcs {
-		if s.URL == req.LogURL {
+	for _, src := range g.srcs {
+		if src.URL == req.LogURL {
 			return true
 		}
 	}
