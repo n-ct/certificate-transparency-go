@@ -136,7 +136,7 @@ type PreCert struct {
 	TBSCertificate []byte `tls:"minlen:1,maxlen:16777215"` // DER-encoded TBSCertificate
 }
 
-// type GossipEntry represents gossiped information obtained from another monitor
+// GossipEntry represents gossiped information obtained from another monitor
 type GossipEntry struct {
 	Data []byte `tls:"minlen:1,maxlen:16777215"`
 }
