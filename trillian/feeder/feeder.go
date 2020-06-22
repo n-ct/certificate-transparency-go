@@ -35,6 +35,7 @@ import (
 )
 
 const millisPerNano int64 = 1000 * 1000
+const leafIndex = 0
 
 // A Portal allows the feeder to connect to trillian and feed data for a log to its tree
 type Portal struct {
