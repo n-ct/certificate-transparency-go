@@ -327,7 +327,7 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 			}
 
 			/// Save STH Info to own database
-			saveSthInfo(info, g.rpcEndpoint)
+			saveSthInfo(info, src.URL, g.gossiperIdentifier)
 
 			/// Send HTTP Request containing sthInfo to other monitors
 			/// todo: integrate consistency proof and boolean result
@@ -335,7 +335,7 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 				glog.Infof("Broadcaster: info (%s)->(%s)", src.Name, monitor.Name)
 				ack, err := monitor.HTTPClient.PostGossipExchange(ctx, ct.GossipExchangeRequest{
 					LogURL:       src.URL,
-					GossipOrigin: g.rpcEndpoint,
+					GossipOrigin: g.gossiperIdentifier,
 					STH:          *info.sth,
 					IsConsistent: true,
 					Proof:        []ct.MerkleTreeNode{},
@@ -350,9 +350,9 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 	}
 }
 
-func saveSthInfo(info sthInfo, gossipOrigin string) {
+func saveSthInfo(info sthInfo, logURL string, gossipOrigin string) {
 	err := feeder.Feed(context.Background(), ct.GossipExchangeRequest{
-		LogURL:       self,
+		LogURL:       logURL,
 		GossipOrigin: gossipOrigin,
 		STH:          *info.sth,
 		IsConsistent: true,
@@ -403,13 +403,35 @@ func (g *Gossiper) HandleGossipListener(rw http.ResponseWriter, req *http.Reques
 
 	/// todo: depending on if the gossipReq shows a log being Consistent or not
 	/// we will need to process this a bit more than just saving it
-	feeder.Feed(context.Background(), gossipReq, portal)
-
-	gossipResp, err := gossip.EncodeGossipResponse(rw, gossipReq)
-	if err != nil {
-		glog.Warningf("HandleGossipListener: Could not decode Gossip Reqsponse %v", err)
+	if g.gossipContainsInfoAboutMonitoredLog(gossipReq) {
+		feeder.Feed(context.Background(), gossipReq, portal)
+		gossipResp, err := gossip.EncodeGossipResponse(rw, ct.GossipExchangeResponse{
+			Acknowledged: true,
+			LogURL:       gossipReq.LogURL,
+			STH:          gossipReq.STH,
+		})
+		if err != nil {
+			glog.Warningf("HandleGossipListener: Could not decode Gossip Reqsponse %v", err)
+		}
+		glog.Infof("HandleGossipListener: GossipResponse\n%v\n", gossipResp)
+	} else {
+		gossipResp, _ := gossip.EncodeGossipResponse(rw, ct.GossipExchangeResponse{
+			Acknowledged: false,
+		})
+		glog.Infof("HandleGossipListener: Ignoring Gossip Information because it is not relevant %v\n", gossipResp)
 	}
-	glog.Infof("HandleGossipListener: GossipResponse\n%v\n", gossipResp)
+}
+
+func (g *Gossiper) gossipContainsInfoAboutMonitoredLog(req ct.GossipExchangeRequest) bool {
+	if len(req.LogURL) == 0 {
+		return false
+	}
+	for _, s := range g.srcs {
+		if s.URL == req.LogURL {
+			return true
+		}
+	}
+	return false
 }
 
 // Submitter periodically services the provided channel and submits the
