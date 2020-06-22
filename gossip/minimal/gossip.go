@@ -229,16 +229,16 @@ type monitor struct {
 // distributes it to a destination log in the form of an X.509 certificate with
 // the STH value embedded in it.
 type Gossiper struct {
-	signer           crypto.Signer
-	root             *x509.Certificate
-	dests            map[string]*destHub
-	srcs             map[string]*sourceLog
-	monitors         map[string]*monitor
-	bufferSize       int
+	signer             crypto.Signer
+	root               *x509.Certificate
+	dests              map[string]*destHub
+	srcs               map[string]*sourceLog
+	monitors           map[string]*monitor
+	bufferSize         int
 	gossiperIdentifier string
-	gossipListenAddr string
-	rpcEndpoint      string
-	privateKey       *any.Any
+	gossipListenAddr   string
+	rpcEndpoint        string
+	privateKey         *any.Any
 }
 
 // CheckCanSubmit checks whether the gossiper can submit STHs to all destination hubs.
@@ -299,9 +299,10 @@ func (g *Gossiper) Run(ctx context.Context) {
 }
 
 func (g *Gossiper) getAllSrcLogUrls() []string {
-	urls := make([]string, len(g.srcs))
-	for i, src := range g.srcs {
+	urls, i := make([]string, len(g.srcs)), 0
+	for _, src := range g.srcs {
 		urls[i] = src.URL
+		i++
 	}
 	return urls
 }

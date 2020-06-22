@@ -236,11 +236,11 @@ type GossipConfig struct {
 	Monitor []*MonitorConfig `protobuf:"bytes,6,rep,name=monitor,json=monitor,proto3" json:"monitor,omitempty"`
 	// GossiperIdentifier is a unique identifier/prefix for a monitor
 	// it is used as a description of gossip origin in exchanged gossip information
-	GossiperIdentifier 	 string		`protobuf:"bytes,7,opt,name=gossiper_identifier,proto3" json:"gossiper_identifier,omitempty"`
+	GossiperIdentifier string `protobuf:"bytes,7,opt,name=gossiper_identifier,proto3" json:"gossiper_identifier,omitempty"`
 	// the RPC endpoint to connect to Trillian
-	RPCEndpoint          string   `protobuf:"bytes,8,opt,name=rpc_endpoint,proto3" json:"rpc_endpoint,omitempty"`
+	RPCEndpoint string `protobuf:"bytes,8,opt,name=rpc_endpoint,proto3" json:"rpc_endpoint,omitempty"`
 	// The Address:Port on which Gossip Exchanges will happen
-	GossipListenAddr string `protobuf:"bytes,9,opt,name=gossip_listen_addr,proto3" json:"gossip_listen_addr,omitempty"`
+	GossipListenAddr     string   `protobuf:"bytes,9,opt,name=gossip_listen_addr,proto3" json:"gossip_listen_addr,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
