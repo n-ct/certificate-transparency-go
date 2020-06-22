@@ -38,6 +38,7 @@ type LogEntryType tls.Enum // tls:"maxval:65535"
 const (
 	X509LogEntryType    LogEntryType = 0
 	PrecertLogEntryType LogEntryType = 1
+	GossipLogEntryType  LogEntryType = 2
 	XJSONLogEntryType   LogEntryType = 0x8000 // Experimental.  Don't rely on this!
 )
 
@@ -47,6 +48,8 @@ func (e LogEntryType) String() string {
 		return "X509LogEntryType"
 	case PrecertLogEntryType:
 		return "PrecertLogEntryType"
+	case GossipLogEntryType:
+		return "GossipLogEntryType"
 	case XJSONLogEntryType:
 		return "XJSONLogEntryType"
 	default:
@@ -131,6 +134,11 @@ type LogID struct {
 type PreCert struct {
 	IssuerKeyHash  [sha256.Size]byte
 	TBSCertificate []byte `tls:"minlen:1,maxlen:16777215"` // DER-encoded TBSCertificate
+}
+
+// type GossipEntry represents gossiped information obtained from another monitor
+type GossipEntry struct {
+	Data []byte `tls:"minlen:1,maxlen:16777215"`
 }
 
 // CTExtensions is a representation of the raw bytes of any CtExtension
@@ -363,6 +371,7 @@ type TimestampedEntry struct {
 	EntryType    LogEntryType   `tls:"maxval:65535"`
 	X509Entry    *ASN1Cert      `tls:"selector:EntryType,val:0"`
 	PrecertEntry *PreCert       `tls:"selector:EntryType,val:1"`
+	GossipEntry  *GossipEntry   `tls:"selector:EntryType,val:2"`
 	JSONEntry    *JSONDataEntry `tls:"selector:EntryType,val:32768"`
 	Extensions   CTExtensions   `tls:"minlen:0,maxlen:65535"`
 }
@@ -579,6 +588,7 @@ type GetEntryAndProofResponse struct {
 // via the PostGossipExchange method
 type GossipExchangeRequest struct {
 	LogURL       string           `json:"logUrl"`
+	GossipOrigin string           `json:"gossipOrigin"`
 	STH          SignedTreeHead   `json:"sth"`
 	IsConsistent bool             `json:"isConsistent"`
 	Proof        ConsistencyProof `json:"proof"`

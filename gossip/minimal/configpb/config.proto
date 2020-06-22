@@ -58,6 +58,16 @@ message HubConfig {
   int64 start_index = 6;
 }
 
+message MonitorConfig {
+  // Human-readable name for the monitor; must be unique
+  string name = 1;
+  // Base URL for the monitor.
+  string url = 2;
+  // Monitor's public key.
+  // todo: This is optional and needs to be incorporated in some way
+  keyspb.PublicKey public_key = 3;
+}
+
 // GossipConfig describes the configuration of a gossiper.
 message GossipConfig {
   // The source logs whose STHs will be logged.
@@ -77,6 +87,15 @@ message GossipConfig {
   google.protobuf.Any private_key = 4;
   // Number of buffered STHs allowed. Must not be negative.
   int32 buffer_size = 5;
+
+  // The monitors with whom we will accept and exchange gossip on source logs
+  repeated MonitorConfig monitor = 6;
+  // a unique name/prefix by which a gossiper will identify itself in gossip broadcasts
+  string GossiperIdentifier = 7
+	// the RPC endpoint to connect to Trillian
+	string RPCEndpoint = 8
+	// The Address:Port on which Gossip Exchanges will happen
+	string GossipListenAddr = 9
 }
 
 // GoshawkConfig describes the configuration of a gossiper.

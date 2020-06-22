@@ -237,6 +237,7 @@ type Gossiper struct {
 	srcs             map[string]*sourceLog
 	monitors         map[string]*monitor
 	bufferSize       int
+	gossiperIdentifier string
 	gossipListenAddr string
 	rpcEndpoint      string
 	privateKey       *any.Any
@@ -326,13 +327,15 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 			}
 
 			/// Save STH Info to own database
-			saveSthInfo(info)
+			saveSthInfo(info, g.rpcEndpoint)
 
 			/// Send HTTP Request containing sthInfo to other monitors
+			/// todo: integrate consistency proof and boolean result
 			for _, monitor := range g.monitors {
 				glog.Infof("Broadcaster: info (%s)->(%s)", src.Name, monitor.Name)
 				ack, err := monitor.HTTPClient.PostGossipExchange(ctx, ct.GossipExchangeRequest{
 					LogURL:       src.URL,
+					GossipOrigin: g.rpcEndpoint,
 					STH:          *info.sth,
 					IsConsistent: true,
 					Proof:        []ct.MerkleTreeNode{},
@@ -347,9 +350,10 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 	}
 }
 
-func saveSthInfo(info sthInfo) {
+func saveSthInfo(info sthInfo, gossipOrigin string) {
 	err := feeder.Feed(context.Background(), ct.GossipExchangeRequest{
 		LogURL:       self,
+		GossipOrigin: gossipOrigin,
 		STH:          *info.sth,
 		IsConsistent: true,
 		Proof:        []ct.MerkleTreeNode{},
@@ -397,6 +401,8 @@ func (g *Gossiper) HandleGossipListener(rw http.ResponseWriter, req *http.Reques
 	}
 	glog.Infof("HandleGossipListener: GossipRequest\n%v\n", gossipReq)
 
+	/// todo: depending on if the gossipReq shows a log being Consistent or not
+	/// we will need to process this a bit more than just saving it
 	feeder.Feed(context.Background(), gossipReq, portal)
 
 	gossipResp, err := gossip.EncodeGossipResponse(rw, gossipReq)
