@@ -17,13 +17,14 @@ package feeder
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"time"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
 	ct "github.com/google/certificate-transparency-go"
-	"github.com/google/certificate-transparency-go/trillian/util"
+	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/trillian"
 	"github.com/google/trillian/client"
 	"google.golang.org/grpc"
@@ -34,6 +35,7 @@ import (
 )
 
 const millisPerNano int64 = 1000 * 1000
+const leafIndex = 0
 
 // A Portal allows the feeder to connect to trillian and feed data for a log to its tree
 type Portal struct {
@@ -129,19 +131,31 @@ func buildLogLeafForGossiper(gossipReq ct.GossipExchangeRequest, portal *Portal)
 	// Get the current time in the form used throughout RFC6962, namely milliseconds since Unix
 	// epoch, and use this throughout.
 	timeMillis := uint64(time.Now().UnixNano() / millisPerNano)
+	gossipEntryData := []byte(fmt.Sprintf("%v", gossipReq))
 
-	cert := &ct.ASN1Cert{Data: []byte(fmt.Sprintf("%v", gossipReq))}
-	merkleLeaf := ct.MerkleTreeLeaf{
+	leafData, err := tls.Marshal(ct.MerkleTreeLeaf{
 		Version:  ct.V1,
 		LeafType: ct.TimestampedEntryLeafType,
 		TimestampedEntry: &ct.TimestampedEntry{
-			EntryType: ct.X509LogEntryType,
+			EntryType: ct.GossipLogEntryType,
 			Timestamp: timeMillis,
-			X509Entry: cert,
+			GossipEntry: &ct.GossipEntry{
+				Data: gossipEntryData,
+			},
 		},
+	})
+	if err != nil {
+		glog.Warningf("buildLogLeafForGossiper: Failed to serialize Merkle leaf: %v", err)
+		return trillian.LogLeaf{}, err
 	}
-	return util.BuildLogLeaf(portal.RPCEndpoint, merkleLeaf, 0,
-		*cert, []ct.ASN1Cert{}, false)
+
+	leafIDHash := sha256.Sum256(gossipEntryData)
+	return trillian.LogLeaf{
+		LeafValue:        leafData,
+		ExtraData:        nil,
+		LeafIndex:        leafIndex,
+		LeafIdentityHash: leafIDHash[:],
+	}, nil
 }
 
 func newCreateDefaultTreeRequest() *trillian.CreateTreeRequest {

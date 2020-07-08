@@ -68,8 +68,6 @@ var (
 	writeErrorsCounter monitoring.Counter // hubname => value
 )
 
-const self = "SELF"
-
 // setupMetrics initializes all the exported metrics.
 func setupMetrics(mf monitoring.MetricFactory) {
 	if mf == nil {
@@ -231,15 +229,16 @@ type monitor struct {
 // distributes it to a destination log in the form of an X.509 certificate with
 // the STH value embedded in it.
 type Gossiper struct {
-	signer           crypto.Signer
-	root             *x509.Certificate
-	dests            map[string]*destHub
-	srcs             map[string]*sourceLog
-	monitors         map[string]*monitor
-	bufferSize       int
-	gossipListenAddr string
-	rpcEndpoint      string
-	privateKey       *any.Any
+	signer             crypto.Signer
+	root               *x509.Certificate
+	dests              map[string]*destHub
+	srcs               map[string]*sourceLog
+	monitors           map[string]*monitor
+	bufferSize         int
+	gossiperIdentifier string
+	gossipListenAddr   string
+	rpcEndpoint        string
+	privateKey         *any.Any
 }
 
 // CheckCanSubmit checks whether the gossiper can submit STHs to all destination hubs.
@@ -300,9 +299,7 @@ func (g *Gossiper) Run(ctx context.Context) {
 }
 
 func (g *Gossiper) getAllSrcLogUrls() []string {
-	urls := make([]string, len(g.srcs)+1)
-	urls[0] = self
-	i := 1
+	urls, i := make([]string, len(g.srcs)), 0
 	for _, src := range g.srcs {
 		urls[i] = src.URL
 		i++
@@ -326,13 +323,15 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 			}
 
 			/// Save STH Info to own database
-			saveSthInfo(info)
+			saveSthInfo(info, src.URL, g.gossiperIdentifier)
 
 			/// Send HTTP Request containing sthInfo to other monitors
+			/// todo: integrate consistency proof and boolean result
 			for _, monitor := range g.monitors {
 				glog.Infof("Broadcaster: info (%s)->(%s)", src.Name, monitor.Name)
 				ack, err := monitor.HTTPClient.PostGossipExchange(ctx, ct.GossipExchangeRequest{
 					LogURL:       src.URL,
+					GossipOrigin: g.gossiperIdentifier,
 					STH:          *info.sth,
 					IsConsistent: true,
 					Proof:        []ct.MerkleTreeNode{},
@@ -347,9 +346,10 @@ func (g *Gossiper) Broadcast(ctx context.Context, s <-chan sthInfo) {
 	}
 }
 
-func saveSthInfo(info sthInfo) {
+func saveSthInfo(info sthInfo, logURL string, gossipOrigin string) {
 	err := feeder.Feed(context.Background(), ct.GossipExchangeRequest{
-		LogURL:       self,
+		LogURL:       logURL,
+		GossipOrigin: gossipOrigin,
 		STH:          *info.sth,
 		IsConsistent: true,
 		Proof:        []ct.MerkleTreeNode{},
@@ -357,7 +357,7 @@ func saveSthInfo(info sthInfo) {
 	if err != nil {
 		glog.Errorf("Could not save STH Info")
 	} else {
-		glog.Infof("Saved STH info to %v", portal.ClientToTreeMap[self].TreeId)
+		glog.Infof("Saved STH info to %v", portal.ClientToTreeMap[logURL].TreeId)
 	}
 }
 
@@ -397,13 +397,35 @@ func (g *Gossiper) HandleGossipListener(rw http.ResponseWriter, req *http.Reques
 	}
 	glog.Infof("HandleGossipListener: GossipRequest\n%v\n", gossipReq)
 
-	feeder.Feed(context.Background(), gossipReq, portal)
-
-	gossipResp, err := gossip.EncodeGossipResponse(rw, gossipReq)
-	if err != nil {
-		glog.Warningf("HandleGossipListener: Could not decode Gossip Reqsponse %v", err)
+	/// todo: depending on if the gossipReq shows a log being Consistent or not
+	/// we will need to process this a bit more than just saving it
+	if g.gossipContainsInfoAboutMonitoredLog(gossipReq) {
+		feeder.Feed(context.Background(), gossipReq, portal)
+		gossipResp, err := gossip.EncodeGossipResponse(rw, ct.GossipExchangeResponse{
+			Acknowledged: true,
+			LogURL:       gossipReq.LogURL,
+			STH:          gossipReq.STH,
+		})
+		if err != nil {
+			glog.Warningf("HandleGossipListener: Could not decode Gossip Reqsponse %v", err)
+		}
+		glog.Infof("HandleGossipListener: GossipResponse\n%v\n", gossipResp)
+	} else {
+		gossipResp, _ := gossip.EncodeGossipResponse(rw, ct.GossipExchangeResponse{Acknowledged: false})
+		glog.Infof("HandleGossipListener: Ignoring Gossip Information because it is not relevant %v\n", gossipResp)
 	}
-	glog.Infof("HandleGossipListener: GossipResponse\n%v\n", gossipResp)
+}
+
+func (g *Gossiper) gossipContainsInfoAboutMonitoredLog(req ct.GossipExchangeRequest) bool {
+	if len(req.LogURL) == 0 {
+		return false
+	}
+	for _, src := range g.srcs {
+		if src.URL == req.LogURL {
+			return true
+		}
+	}
+	return false
 }
 
 // Submitter periodically services the provided channel and submits the

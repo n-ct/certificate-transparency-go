@@ -23,6 +23,8 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
+var gossipListenAddr string = ":6966"
+
 // LogConfig describes the configuration options for a source Log,
 // whose STH values are tracked/monitored.
 type LogConfig struct {
@@ -232,10 +234,13 @@ type GossipConfig struct {
 	BufferSize int32 `protobuf:"varint,5,opt,name=buffer_size,json=bufferSize,proto3" json:"buffer_size,omitempty"`
 	// The monitors with whom we will gossip
 	Monitor []*MonitorConfig `protobuf:"bytes,6,rep,name=monitor,json=monitor,proto3" json:"monitor,omitempty"`
+	// GossiperIdentifier is a unique identifier/prefix for a monitor
+	// it is used as a description of gossip origin in exchanged gossip information
+	GossiperIdentifier string `protobuf:"bytes,7,opt,name=gossiper_identifier,proto3" json:"gossiper_identifier,omitempty"`
+	// the RPC endpoint to connect to Trillian
+	RPCEndpoint string `protobuf:"bytes,8,opt,name=rpc_endpoint,proto3" json:"rpc_endpoint,omitempty"`
 	// The Address:Port on which Gossip Exchanges will happen
-	GossipListenAddr string `protobuf:"bytes,7,opt,name=gossip_listen_addr,proto3" json:"gossip_listen_addr,omitempty"`
-	// the RPC endpoint for Trillian
-	RPCEndpoint          string   `protobuf:"bytes,8,opt,name=rpc_endpoint,proto3" json:"rpc_endpoint,omitempty"`
+	GossipListenAddr     string   `protobuf:"bytes,9,opt,name=gossip_listen_addr,proto3" json:"gossip_listen_addr,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -265,20 +270,6 @@ func (m *GossipConfig) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_GossipConfig proto.InternalMessageInfo
-
-func (m *GossipConfig) GetGossipListenAddr() string {
-	if m != nil {
-		return m.GossipListenAddr
-	}
-	return ""
-}
-
-func (m *GossipConfig) GetRpcEndpoint() string {
-	if m != nil {
-		return m.RPCEndpoint
-	}
-	return ""
-}
 
 func (m *GossipConfig) GetSourceLog() []*LogConfig {
 	if m != nil {
@@ -313,6 +304,34 @@ func (m *GossipConfig) GetBufferSize() int32 {
 		return m.BufferSize
 	}
 	return 0
+}
+
+func (m *GossipConfig) GetMonitor() []*MonitorConfig {
+	if m != nil {
+		return m.Monitor
+	}
+	return nil
+}
+
+func (m *GossipConfig) GetGossiperIdentifier() string {
+	if m != nil {
+		return m.GossiperIdentifier
+	}
+	return ""
+}
+
+func (m *GossipConfig) GetGossipListenAddr() string {
+	if m != nil {
+		return m.GossipListenAddr
+	}
+	return gossipListenAddr
+}
+
+func (m *GossipConfig) GetRPCEndpoint() string {
+	if m != nil {
+		return m.RPCEndpoint
+	}
+	return ""
 }
 
 // GoshawkConfig describes the configuration of a gossiper.

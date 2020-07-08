@@ -153,23 +153,15 @@ func DecodeGossipRequest(rw http.ResponseWriter, req *http.Request) (ct.GossipEx
 
 // EncodeGossipResponse encodes a GossipExchangeResponse
 /// TODO: Process the request instead of saving and responding
-func EncodeGossipResponse(rw http.ResponseWriter, gossipReq ct.GossipExchangeRequest) (ct.GossipExchangeResponse, error) {
-	gossipResp := ct.GossipExchangeResponse{
-		Acknowledged: true,
-		LogURL:       gossipReq.LogURL,
-		STH:          gossipReq.STH,
-	}
-
+func EncodeGossipResponse(rw http.ResponseWriter, gossipResp ct.GossipExchangeResponse) (ct.GossipExchangeResponse, error) {
 	rw.Header().Set("Content-Type", "application/json")
 	fmt.Printf("EncodeGossipResponse: %v\n", gossipResp)
 
 	encoder := json.NewEncoder(rw)
 	if err := encoder.Encode(gossipResp); err != nil {
-		fmt.Println("EncodeGossipResponse: Encoding Failed :(")
 		writeErrorResponse(&rw, http.StatusInternalServerError, fmt.Sprintf("Couldn't encode gossip response to return: %v", err))
 		return ct.GossipExchangeResponse{}, fmt.Errorf("Couldn't encode gossip response to return: %v", err)
 	}
-	fmt.Println("EncodeGossipResponse: Encoding Succeeded :)")
 
 	return gossipResp, nil
 }

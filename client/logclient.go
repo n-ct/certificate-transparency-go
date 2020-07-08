@@ -258,6 +258,7 @@ func (c *LogClient) GetEntryAndProof(ctx context.Context, index, treeSize uint64
 func (c *LogClient) PostGossipExchange(ctx context.Context, data ct.GossipExchangeRequest) (*ct.GossipExchangeResponse, error) {
 	req := ct.GossipExchangeRequest{
 		LogURL:       data.LogURL,
+		GossipOrigin: data.GossipOrigin,
 		STH:          data.STH,
 		IsConsistent: data.IsConsistent,
 		Proof:        data.Proof,

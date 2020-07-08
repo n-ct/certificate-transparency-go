@@ -38,10 +38,11 @@ import (
 )
 
 const (
-	defaultRateHz           = 1.0
-	defaultMinInterval      = 1 * time.Second
-	overrideNeedPrivKey     = true
-	defaultGossipListenAddr = ":6966"
+	defaultRateHz             = 1.0
+	defaultMinInterval        = 1 * time.Second
+	overrideNeedPrivKey       = true
+	defaultGossipListenAddr   = ":6966"
+	defaultGossiperIdentifier = "defaultGossiperIdentifier"
 )
 
 // NewGossiperFromFile creates a gossiper from the given filename, which should
@@ -99,6 +100,16 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 	} else {
 		glog.Infof("configured RPC Endpoint for gossip storage at %+v", cfg.RPCEndpoint)
 	}
+	var listenOn string
+	if listenOn = defaultGossipListenAddr; len(cfg.GossipListenAddr) != 0 {
+		listenOn = cfg.GossipListenAddr
+	}
+	glog.Infof("configured gossip listen addr to %+v", listenOn)
+	var gossiperIdentifier string
+	if gossiperIdentifier = defaultGossiperIdentifier; len(cfg.GossiperIdentifier) != 0 {
+		listenOn = cfg.GossipListenAddr
+	}
+	glog.Infof("configured GossiperIdentifier as %+v", gossiperIdentifier)
 
 	needPrivKey := false
 	for _, destHub := range cfg.DestHub {
@@ -194,12 +205,6 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 		}
 	}
 
-	var listenOn string
-	if listenOn = defaultGossipListenAddr; len(cfg.GossipListenAddr) != 0 {
-		listenOn = cfg.GossipListenAddr
-	}
-	glog.Infof("configured gossip listen addr to %+v", listenOn)
-
 	return &Gossiper{
 		signer:     signer,
 		root:       root,
@@ -208,9 +213,10 @@ func NewBoundaryGossiper(ctx context.Context, cfg *configpb.GossipConfig, hcLog,
 		monitors:   monitors,
 		bufferSize: int(cfg.BufferSize),
 		/// TODO: input sanitization for gossipListenAddr, rpcEndpoint
-		gossipListenAddr: listenOn,
-		rpcEndpoint:      cfg.RPCEndpoint,
-		privateKey:       cfg.PrivateKey,
+		gossiperIdentifier: gossiperIdentifier,
+		gossipListenAddr:   listenOn,
+		rpcEndpoint:        cfg.RPCEndpoint,
+		privateKey:         cfg.PrivateKey,
 	}, nil
 }
 
