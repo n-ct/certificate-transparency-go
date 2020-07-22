@@ -1,0 +1,47 @@
+Create Monitor Internal Functions
+ObtainCurrentView
+UpdateView
+ValidateConsistencyProof
+GenerateMisbehaviorProof
+GossipMisbehaviorProof
+ValidateMisbehaviorProof
+ValidateInclusionProof
+
+ObtainCurrentView( log_id_list , mirroring_list, treestate_list):
+	For l in log_id_list:
+		UpdateView( log_id, treestate, mirroring )
+
+UpdateView( int log_id, int treestate, mirroring = False ):
+	Get latest sth from log (get-sth)
+	Get consistency from log (get-sth-consistency)
+	ValidateConsistencyProof
+	If proof not valid:
+		GenerateMisbehaviorProof
+		GossipMisbehaviorProof
+
+ValidateConsistencyProof:
+	https://tools.ietf.org/html/draft-ietf-trans-rfc6962-bis-34#section-2.1.4.2
+
+GenerateMisbehaviorProof:
+Struct {
+	Int Log_id;
+	ConsistencyProof proof;
+	STH original;
+	STH expected;
+	STH received;
+} MisbehaviorProof
+Return proof and add to misbehaving_logs storage
+
+GossipMisbehaviorProof( monitors_list, MisbehaviorProof ):
+	For m in monitors_list:
+		Submit MisbehaviorProof to monitor using (submit-misbehavior) entrypoint
+
+ValidateMisbehaviorProof:
+	Assert STH expected != STH received
+	Generate STH from ConsistencyProof and original STH
+	Assert that generated STH == STH expected
+	GossipMisbehaviorProof
+
+ValidateInclusionProof
+	https://tools.ietf.org/html/draft-ietf-trans-rfc6962-bis-34#section-8.1.5
+
