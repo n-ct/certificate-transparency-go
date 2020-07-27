@@ -30,7 +30,8 @@ type MisbehaviorProof struct {
 //QUESTION: Does the ct.SignedTreeHead need to be a pointer in the parameters being passed in?
 func GenerateMisbebehaviorProof (logid int64, consistencyproof int64, STHoriginal *ct.SignedTreehead, STHreceived *ct.SignedTreehead, STHexpected *ct.SignedTreehead) {
 	misbehaviorproof := MisbehaviorProof{logid, consistencyproof, STHoriginal, STHexpected, STHreceived}
-	return misbehaviorproof //On this line I get the error of too many arguments to return.
+	return misbehaviorproof //TODO: fix the return parameter and look up copying a struct
+	
 }
 
 func ObtainCurrentView(log_id_list []int64, treestate_list []int32, mirroring_list []byte   )  {
