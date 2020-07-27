@@ -36,7 +36,7 @@ func GenerateMisbebehaviorProof (logid int64, consistencyproof int64, STHorigina
 func ObtainCurrentView(log_id_list []int64, treestate_list []int32, mirroring_list []byte   )  {
 
 	/*
-	I do not know how to pass a false boolean value into the UpdateView() as outlined in the
+	I do not know how to pass a false boolean value into the UpdateView() as outlined in the task breakdown.
 
 	This chunk of code is something that I am stuck on and working on. I am trying to compare the log_id_list and the mirroring_list slices.
 	I want to loop through each slice at the same time and at each index value, compare the slices. If the mirroring list contains a 0 (false), then I will create a new slice
@@ -45,7 +45,7 @@ func ObtainCurrentView(log_id_list []int64, treestate_list []int32, mirroring_li
 
 	if len(mirroring_list) == len(log_id_list) {
 		for i, x := range log_id_list {
-			if (bytes.Contains(mirroring_list[i]byte, []byte"1" ) ) //one idea I had to try to get it to work
+			if (bytes.Contains(mirroring_list[i]byte, []byte"1" ) ) //one idea I had to try to get it to work. It isn't quite working out. 
 		}
 	}
 
