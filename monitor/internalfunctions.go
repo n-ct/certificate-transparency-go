@@ -13,55 +13,51 @@ import (
 
 //These are just test values
 var log_id_list = []int64{12334, 234456, 34567}
-var mirroring_list = []byte{0, 1, 0 }
+var mirroring_list = []bool{false, true, false }
 var treestate_list = []int32{11,22,33}
 
 
 type MisbehaviorProof struct {
-	log_id int64 // QUESTION: does this need to be a different variable? Since log_id is used elsewhere
-	consistency_proof int64 //QUESTION: does this have to be two snapshots like the function does. //todo: look at the what is returned from the consistency_proof
-	SignedTreeheadOriginal ct.SignedTreeHead //QUESTION: does this need to be a pointer?
-	SignedTreeheadExpected ct.SignedTreeHead
-	SignedTreeheadRecieved ct.SignedTreeHead //ct.SignedTreeHead is from  certificate-transparency-go/types.go:292
+	log_id int64
+	timeOfCreation int64 //The type might not be correct. see what a time function/package can do
+	consistency_proof int64 // Check 
+	SignedTreeheadOriginal *ct.SignedTreeHead
+	SignedTreeheadExpected *ct.SignedTreeHead
+	SignedTreeheadRecieved *ct.SignedTreeHead //ct.SignedTreeHead is from  certificate-transparency-go/types.go:292
+}
+
+//additional data to precisely label the misbehavior proof
+
+
+//this was discussed at the previous meeting as a potential struct... waiting for more information
+type monotonicityProof struct {
+
 }
 
 
-//I was looking for an example on how to make a struct and return it. I haven't found one so far. This is my best attempt and I know it does't work. I'm gonna keep looking at it.
-//QUESTION: Does the ct.SignedTreeHead need to be a pointer in the parameters being passed in?
-func GenerateMisbebehaviorProof (logid int64, consistencyproof int64, STHoriginal *ct.SignedTreehead, STHreceived *ct.SignedTreehead, STHexpected *ct.SignedTreehead) {
+func (m *MisbehaviorProof) GenerateMisbebehaviorProof() MisbehaviorProof{
 	misbehaviorproof := MisbehaviorProof{logid, consistencyproof, STHoriginal, STHexpected, STHreceived}
-	return misbehaviorproof //TODO: fix the return parameter and look up copying a struct
-	
+	//TODO: create a function to add the current time for the proof.
+	return misbehaviorproof
 }
 
-func ObtainCurrentView(log_id_list []int64, treestate_list []int32, mirroring_list []byte   )  {
-
-	/*
-	I do not know how to pass a false boolean value into the UpdateView() as outlined in the task breakdown.
-
-	This chunk of code is something that I am stuck on and working on. I am trying to compare the log_id_list and the mirroring_list slices.
-	I want to loop through each slice at the same time and at each index value, compare the slices. If the mirroring list contains a 0 (false), then I will create a new slice
-	of just the values that are mirrored from the log_id_list. That new slice will be passed into the UpdateView() function.
-	*/
-
+func ObtainCurrentView(log_id_list []int64, mirroring_list []bool) {
 	if len(mirroring_list) == len(log_id_list) {
-		for i, x := range log_id_list {
-			if (bytes.Contains(mirroring_list[i]byte, []byte"1" ) ) //one idea I had to try to get it to work. It isn't quite working out. 
+		for i, j := 0, 0; i < len(log_id_list); i, j = i+1, j+1 {
+			if mirroring_list[j] == false { //if mirroring list contains a false value then run the update view
+				//fmt.Printf(" The log_id list is %d", log_id_list[i]) to help test it
+				UpdateView(log_id_list[i]) //Cannot use 'log_id_list[i]' (type int64) as type []int64
+			}
 		}
 	}
-
-
-
 }
 
-/*
-func UpdateView(log_id int, treestate int) {
+
+func UpdateView(log_id_list []int64) {
 	//this is the get-sth.... the function is in logclient.go line 154
 	//GetSTH(ctx context.Context) (*ct.SignedTreeHead, error)
 
 }
-
-*/
 
 /*
 func GossipMisbehaviorProof
@@ -156,4 +152,3 @@ func (v LogVerifier) VerifyConsistencyProof(snapshot1, snapshot2 int64, root1, r
 
 	return nil // Proof OK.
 }
-
